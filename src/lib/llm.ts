@@ -11,9 +11,11 @@ export function getLLMConfig() {
 
   const apiKey = process.env.IDDB_LLM_KEY || process.env.ANTHROPIC_API_KEY;
 
-  const isProxy = baseUrl.includes("llm.atko.ai");
+  // Internal cluster URL contains "iddb-system"; external proxy contains "llm.atko.ai".
+  const isProxy = baseUrl.includes("llm.atko.ai") || baseUrl.includes("iddb-system");
   const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
-  const endpoint = `${baseUrl.replace(/\/$/, "")}/v1/messages`;
+  // IDDB_LLM_BASE_URL already ends with /v1 — strip it before appending to avoid /v1/v1.
+  const endpoint = `${baseUrl.replace(/\/$/, "").replace(/\/v1$/, "")}/v1/messages`;
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (isProxy) {
