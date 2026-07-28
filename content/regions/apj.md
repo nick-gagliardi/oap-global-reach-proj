@@ -7,7 +7,7 @@ last_updated: 2026-07-28
 
 ## Market context
 
-APJ is not one market. Japan, Australia/New Zealand, India, ASEAN, and Korea differ in language, buying culture, security priorities, and travel appetite — a single "APJ pitch" will underperform everywhere. What they share is distance: Las Vegas is a [PLACEHOLDER] 10-17 hour flight and effectively a full week away from the office including recovery, which makes Oktane the most expensive conference decision an APJ customer will make this year in time terms, regardless of price.
+APJ is not one market. Japan, Australia/New Zealand, India, ASEAN, and Korea differ in language, buying culture, security priorities, and travel appetite — a single "APJ pitch" will underperform everywhere. What they share is distance: Las Vegas is a 10–17 hour flight and effectively a full week away from the office including recovery, which makes Oktane the most expensive conference decision an APJ customer will make this year in time terms, regardless of price.
 
 Other regional realities:
 
@@ -20,9 +20,9 @@ Other regional realities:
 
 - Justify the distance explicitly: exec meetings, NDA roadmap sessions, and hands-on labs — things with no remote equivalent. Acknowledge the burden; don't minimize it.
 - Route invitations through partners or senior Okta leaders where culture expects it (Japan, Korea in particular).
-- Ask about delegation options: [PLACEHOLDER] APJ group programming, delegation dinners, or an APJ attendee track — confirm what exists this year before promising.
+- **Japan Welcome Reception**: Tuesday, September 22, 6–9pm. Location TBD. Contact: Katie Paterson. Lead with this event for Japanese accounts — dedicated networking on opening night demonstrates Okta's APJ investment.
 - Position against regional events honestly — recommend the regional event for personas who only need broad content, and reserve the Oktane push for accounts where the in-person-only value is real. Selective pushes protect credibility.
-- Start early. Between travel approvals, visa needs for some countries ([PLACEHOLDER] India, Vietnam, others TBD), and long-haul booking economics, late invitations fail quietly.
+- Start early. Between travel approvals, visa needs (India and several ASEAN countries need B1/B2 visas — start immediately for a Sept 22 event), and long-haul booking economics, late invitations fail quietly.
 
 ## Tone guidance
 
@@ -33,7 +33,7 @@ Other regional realities:
 
 ## Practical notes
 
-- Travel: direct or one-stop routings to Las Vegas via [PLACEHOLDER] LAX, SFO, or Seattle from most APJ hubs; from ANZ typically via LAX. Recommend arrival a day early — a jet-lagged attendee sleeps through day one.
-- Visas: ANZ, Japan, Korea, Singapore travelers generally use [PLACEHOLDER] ESTA/visa-waiver (verify current rules); India and several ASEAN countries need B1/B2 visas with [PLACEHOLDER] significant appointment lead times — treat like LATAM and start immediately.
-- Regional contacts: [PLACEHOLDER] APJ marketing lead TBD; [PLACEHOLDER] Japan country lead TBD; [PLACEHOLDER] APJ partner lead TBD.
-- Key dates: [PLACEHOLDER] early-bird deadline TBD; [PLACEHOLDER] APJ delegation sign-up deadline TBD if the program runs.
+- Travel: direct or one-stop routings to Las Vegas via LAX, SFO, or Seattle from most APJ hubs; from ANZ typically via LAX. Recommend arrival a day early — a jet-lagged attendee sleeps through day one.
+- Visas: ANZ, Japan, Korea, Singapore travelers generally use ESTA/visa-waiver (verify current rules); India and several ASEAN countries need B1/B2 visas with significant appointment lead times — treat like LATAM and start immediately for the Sept 22–24 event.
+- Hotels (via Attendee Portal): Caesars Palace $229++, The LINQ $149++. Discounted airfare: Alaska Airlines code ECMQ358, Southwest via SWABIZ, United code ZS5J807770. Valid Sept 19–27, 2026.
+- Key dates: early-bird cutoff July 29, 2026. Japan Welcome Reception: Tuesday Sept 22, 6–9pm (contact: Katie Paterson).
