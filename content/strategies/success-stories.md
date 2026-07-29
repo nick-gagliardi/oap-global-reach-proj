@@ -1,5 +1,5 @@
 ---
-title: "Previous Attendance Successes"
+title: "Success Stories"
 strategy_number: 6
 owner: "OAP Global Reach"
 regions: [latam, apj, emea, pubsec]
@@ -25,7 +25,9 @@ summary: "Evidence library of what past international attendees got out of Oktan
 - Direct CISO and CTO visibility gained
 - Yahoo is now **speaking at Oktane** this year
 
-**Mike Volpe's quote:** "They went from a 2-3 year timeline to immediate budget just by getting them in front of our experts to talk about Agentic AI. We completely displaced SailPoint and CyberArk."
+> "They went from a 2-3 year timeline to immediate budget just by getting them in front of our experts to talk about Agentic AI. We completely displaced SailPoint and CyberArk."
+>
+> — Mike Volpe, Regional Manager, Customer Success
 
 ### What made it work
 

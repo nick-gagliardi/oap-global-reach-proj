@@ -1,11 +1,7 @@
 ---
-title: "Attendance Value Insights"
-strategy_number: 8
-owner: "OAP Global Reach"
-regions: [latam, apj, emea, pubsec]
-status: complete
+title: "Oktane FY27 Field Overview"
+summary: "Program-level field guide: attendance value data, FY27 event facts, the Oktane Conversation framework, and the AI Identity Readiness Assessment"
 last_updated: 2026-07-28
-summary: "The core value case for attending Oktane in person — what attendees actually get, how to frame ROI, and data points that survive a CFO conversation"
 ---
 
 ## Why Oktane matters — data you can use
@@ -19,8 +15,8 @@ These are not estimates — they come from Okta's own data and survive a CFO con
 
 ## FY27 event overview
 
-**Dates:** September 22–24, 2026  
-**Venue:** Caesars Forum, Las Vegas, NV  
+**Dates:** September 22–24, 2026
+**Venue:** Caesars Forum, Las Vegas, NV
 **Registration:** oktane.com
 
 FY27 goals: 4,100 in-person registrations; 3,600 in-person attendees (excluding employees); 100,000 Oktane Digital livestream views within 24 hours; $300k revenue registration; $3.9m sponsorship.
@@ -33,15 +29,11 @@ The scale signals seriousness — this is Okta's largest annual closing event an
 - **Direct exec access** — keynote speakers, roundtable hosts, and the Executive Summit are all in-person-only
 - **Hands-on labs** — instructor-led and self-guided options, same week as the conference; not replicated at regional events
 - **Face time with peers** — customers solving the same problems, in the same room; CEC Roundtable and CEC Connect formats only exist onsite
-- **Deal acceleration** — the Yahoo case (see success-stories) shows what a custom Oktane track does for a stalled deal
+- **Deal acceleration** — the Yahoo case (see the Success Stories section) shows what a custom Oktane track does for a stalled deal
 
-:::region apj
-Japan Welcome Reception: Tuesday Sept 22, 6–9pm. A dedicated APJ networking event on opening night — a concrete benefit for Japanese customers making the long-haul trip.
-:::
+**APJ note:** Japan Welcome Reception, Tuesday Sept 22, 6–9pm — a dedicated APJ networking event on opening night; a concrete benefit for Japanese customers making the long-haul trip.
 
-:::region latam
-LATAM Reception: Tuesday Sept 22, 6–7pm. Contact Vania De Rosas for details. Regional networking on opening night — worth naming explicitly when inviting LATAM attendees.
-:::
+**LATAM note:** LATAM Reception, Tuesday Sept 22, 6–7pm (contact Vania De Rosas) — regional networking on opening night; worth naming explicitly when inviting LATAM attendees.
 
 ## The Oktane Conversation framework
 
