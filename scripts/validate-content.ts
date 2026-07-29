@@ -5,6 +5,7 @@
  */
 import {
   getAllStrategies,
+  getGuides,
   getObjections,
   getRegions,
   getVerticals,
@@ -16,6 +17,7 @@ try {
   const regions = getRegions();
   const objections = getObjections();
   const verticals = getVerticals();
+  const guides = getGuides(); // validates frontmatter; count is unconstrained
 
   const expect = (label: string, got: number, want: number) => {
     if (got !== want) throw new Error(`Expected ${want} ${label}, found ${got}`);
@@ -33,7 +35,7 @@ try {
   console.log(
     `Content OK: ${strategies.length} strategies, ${regions.length} regions, ` +
       `${objections.length} objections, ${verticals.length} verticals, ` +
-      `${callouts} regional callouts.`,
+      `${guides.length} guides, ${callouts} regional callouts.`,
   );
 } catch (err) {
   console.error(`Content validation FAILED: ${err instanceof Error ? err.message : err}`);

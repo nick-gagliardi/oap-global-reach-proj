@@ -32,15 +32,15 @@ export default function HomePage() {
             </em>
           </h1>
           <p className="mt-5 max-w-xl text-base leading-relaxed text-neutral-300">
-            Localized talking points, success proof, and partner context — everything a rep
-            needs to bring a global customer to Oktane, findable in under two minutes.
+            Pricing stories, success proof, partner coverage, invite prep — everything a rep
+            needs to bring a global customer to Oktane, one question away.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <Link
               href="/prep"
               className="rounded-md bg-okta-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-okta-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-okta-200"
             >
-              Prep a conversation →
+              Ask the assistant →
             </Link>
             <Link
               href="/contribute"

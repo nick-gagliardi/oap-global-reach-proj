@@ -2,11 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getAllStrategies, getStrategy } from "@/lib/content";
-import { isRegion, STRATEGY_SLUGS } from "@/lib/regions";
-import { RegionBadgeList } from "@/components/region-badge";
-import { StatusBadge } from "@/components/status-badge";
+import { isRegion, REGION_LABELS, STRATEGY_SLUGS } from "@/lib/regions";
+import { StatusDot } from "@/components/status-badge";
 import { RegionFilter } from "@/components/region-filter";
-import { SegmentedMarkdown } from "@/components/markdown";
+import { SpecSheet } from "@/components/spec-sheet";
 
 export function generateStaticParams() {
   return STRATEGY_SLUGS.map((slug) => ({ slug }));
@@ -36,25 +35,59 @@ export default async function StrategyPage({
   const next = idx < all.length - 1 ? all[idx + 1] : null;
   const regionQuery = activeRegion ? { region: activeRegion } : undefined;
 
+  const meta = [
+    {
+      label: "Status",
+      value: <StatusDot status={doc.status} />,
+    },
+    { label: "Owner", value: doc.owner },
+    { label: "Updated", value: doc.last_updated },
+    {
+      label: "Regions",
+      value: doc.regions.map((r) => REGION_LABELS[r]).join(" · "),
+    },
+  ];
+
   return (
-    <article className="mx-auto max-w-3xl space-y-6">
-      <header className="space-y-3 border-b border-neutral-200 pb-5">
-        <p className="text-sm text-neutral-500">Strategy {doc.strategy_number} of 8</p>
-        <h1 className="text-2xl font-bold tracking-tight text-neutral-900">{doc.title}</h1>
-        <p className="text-neutral-700">{doc.summary}</p>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-neutral-600">
-          <StatusBadge status={doc.status} />
-          <span>Owner: {doc.owner}</span>
-          <span>Updated {doc.last_updated}</span>
-          <RegionBadgeList regions={doc.regions} />
+    <article className="mx-auto max-w-5xl space-y-8">
+      {/* Spec-sheet header */}
+      <header className="rise space-y-5">
+        <div className="flex items-baseline gap-4">
+          <span
+            aria-hidden="true"
+            className="text-5xl font-bold tabular-nums tracking-tight text-neutral-200"
+          >
+            {String(doc.strategy_number).padStart(2, "0")}
+          </span>
+          <div className="min-w-0 space-y-1">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-okta-600">
+              Global Reach workstream
+            </p>
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl">
+              {doc.title}
+            </h1>
+          </div>
         </div>
+        <p className="max-w-3xl text-neutral-700">{doc.summary}</p>
+
+        <dl className="grid grid-cols-2 divide-neutral-200 overflow-hidden rounded-xl border border-neutral-200 bg-white sm:grid-cols-4 sm:divide-x">
+          {meta.map((m) => (
+            <div key={m.label} className="px-4 py-3">
+              <dt className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                {m.label}
+              </dt>
+              <dd className="mt-1 text-sm text-neutral-900">{m.value}</dd>
+            </div>
+          ))}
+        </dl>
+
         <Suspense fallback={null}>
           <RegionFilter />
         </Suspense>
       </header>
 
       {doc.segments.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-neutral-300 bg-white px-6 py-14 text-center">
+        <div className="rise rise-d2 rounded-xl border border-dashed border-neutral-300 bg-white px-6 py-14 text-center">
           <p
             aria-hidden="true"
             className="text-5xl font-bold tabular-nums tracking-tight text-neutral-200"
@@ -75,10 +108,15 @@ export default async function StrategyPage({
           </Link>
         </div>
       ) : (
-        <SegmentedMarkdown segments={doc.segments} activeRegion={activeRegion} />
+        <div className="rise rise-d2">
+          <SpecSheet segments={doc.segments} activeRegion={activeRegion} />
+        </div>
       )}
 
-      <nav aria-label="Strategy sections" className="flex justify-between border-t border-neutral-200 pt-5 text-sm">
+      <nav
+        aria-label="Strategy sections"
+        className="flex items-center justify-between gap-4 border-t border-neutral-200 pt-5 text-sm"
+      >
         {prev ? (
           <Link
             href={{ pathname: `/strategies/${prev.slug}`, query: regionQuery }}
@@ -89,6 +127,12 @@ export default async function StrategyPage({
         ) : (
           <span />
         )}
+        <Link
+          href={`/contribute?section=${doc.slug}`}
+          className="text-xs font-medium text-neutral-500 hover:text-okta-700 hover:underline"
+        >
+          Contribute to this section
+        </Link>
         {next ? (
           <Link
             href={{ pathname: `/strategies/${next.slug}`, query: regionQuery }}

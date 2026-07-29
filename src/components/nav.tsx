@@ -4,7 +4,7 @@ import { Search } from "./search";
 
 const LINKS = [
   { href: "/strategies", label: "Strategies" },
-  { href: "/prep", label: "Conversation Prep" },
+  { href: "/prep", label: "Assistant" },
   { href: "/contribute", label: "Contribute" },
   { href: "/tracker", label: "Tracker" },
 ];

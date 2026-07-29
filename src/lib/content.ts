@@ -169,6 +169,30 @@ export const getVertical = cache((slug: string): SimpleDoc | null =>
   getVerticals().find((v) => v.slug === slug) ?? null,
 );
 
+/**
+ * Field guides: program-level reference material (e.g. the Oktane FY27 Field
+ * Overview) that grounds the assistant but is not one of the 8 workstream
+ * sections. Any .md file in content/guides/ is loaded; the directory may be
+ * empty or absent.
+ */
+export const getGuides = cache((): SimpleDoc[] => {
+  const dir = path.join(CONTENT_DIR, "guides");
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".md"))
+    .sort()
+    .map((f) => {
+      const slug = f.replace(/\.md$/, "");
+      const { data, content } = readAndParse(path.join("guides", f));
+      const parsed = SimpleFrontmatterSchema.safeParse(data);
+      if (!parsed.success) {
+        throw new Error(`content/guides/${f}: invalid frontmatter — ${parsed.error.message}`);
+      }
+      return { ...parsed.data, slug, body: content };
+    });
+});
+
 export interface SectionStatusRow {
   slug: string;
   title: string;
