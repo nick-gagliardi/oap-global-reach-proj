@@ -41,12 +41,5 @@ export async function GET() {
     }
   }
 
-  const iddbVars = Object.keys(process.env)
-    .filter((k) => k.startsWith("IDDB_"))
-    .reduce<Record<string, string>>((acc, k) => {
-      acc[k] = k.includes("KEY") || k.includes("SECRET") ? "***" : process.env[k]!;
-      return acc;
-    }, {});
-
-  return NextResponse.json({ ok: Object.values(env).every(Boolean) && db === "ok", env, db, iddbVars });
+  return NextResponse.json({ ok: Object.values(env).every(Boolean) && db === "ok", env, db });
 }
