@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   const env = {
-    iddbUrl: !!(process.env.IDDB_URL || process.env.IDDB_API_BASE),
+    iddbUrl: !!(process.env.IDDB_URL || process.env.IDDB_REST_URL || process.env.IDDB_API_URL || process.env.IDDB_API_BASE),
     iddbKey: !!(
       process.env.IDDB_APP_KEY ||
       process.env.IDDB_SERVICE_KEY ||
@@ -22,7 +22,7 @@ export async function GET() {
   let db: "ok" | "unprovisioned" | "error" | "unconfigured" = "unconfigured";
   if (env.iddbUrl && env.iddbKey) {
     try {
-      const base = (process.env.IDDB_URL || process.env.IDDB_API_BASE)!.replace(/\/$/, "");
+      const base = (process.env.IDDB_URL || process.env.IDDB_REST_URL || process.env.IDDB_API_URL || process.env.IDDB_API_BASE)!.replace(/\/$/, "");
       const key =
         process.env.IDDB_APP_KEY || process.env.IDDB_SERVICE_KEY || process.env.IDDB_ANON_KEY!;
       const res = await fetch(`${base}/rest/v1/contributions?select=id&limit=1`, {
