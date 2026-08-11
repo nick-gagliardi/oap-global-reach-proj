@@ -4,7 +4,7 @@
  * The key is SERVICE-LEVEL (no RLS): never expose it or this module client-side.
  */
 function iddbFetch(path: string, options: RequestInit = {}) {
-  const base = process.env.IDDB_URL?.replace(/\/$/, "");
+  const base = (process.env.IDDB_URL || process.env.IDDB_API_BASE)?.replace(/\/$/, "");
   const key =
     process.env.IDDB_APP_KEY || process.env.IDDB_SERVICE_KEY || process.env.IDDB_ANON_KEY;
   // Missing env = store not available yet (e.g. local dev) — same graceful
