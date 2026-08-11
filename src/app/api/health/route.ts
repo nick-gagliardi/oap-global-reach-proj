@@ -24,7 +24,7 @@ export async function GET() {
     try {
       const base = (process.env.IDDB_URL || process.env.IDDB_REST_URL || process.env.IDDB_API_URL || process.env.IDDB_API_BASE)!.replace(/\/$/, "");
       const key =
-        process.env.IDDB_APP_KEY || process.env.IDDB_SERVICE_KEY || process.env.IDDB_ANON_KEY!;
+        process.env.IDDB_APP_KEY || process.env.IDDB_SERVICE_KEY || process.env.IDDB_ANON_KEY || process.env.IDDB_RESOURCE_KEY!;
       const res = await fetch(`${base}/rest/v1/contributions?select=id&limit=1`, {
         headers: { apikey: key, Authorization: `Bearer ${key}` },
       });

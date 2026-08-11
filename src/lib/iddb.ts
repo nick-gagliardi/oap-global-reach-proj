@@ -12,9 +12,9 @@ function iddbFetch(path: string, options: RequestInit = {}) {
   )?.replace(/\/$/, "");
   const key =
     process.env.IDDB_APP_KEY ||
-    process.env.IDDB_RESOURCE_KEY ||
     process.env.IDDB_SERVICE_KEY ||
-    process.env.IDDB_ANON_KEY;
+    process.env.IDDB_ANON_KEY ||
+    process.env.IDDB_RESOURCE_KEY;
   // Missing env = store not available yet (e.g. local dev) — same graceful
   // degradation path as an unprovisioned table.
   if (!base || !key) throw new UnprovisionedError();
