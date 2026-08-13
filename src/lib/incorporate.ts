@@ -50,9 +50,10 @@ House style (follow exactly):
 
 Grounding rules (most important):
 - Use ONLY the contribution text and the document extracts. NEVER invent numbers, customer names, quotes, dates, or outcomes that aren't in the source material.
+- The document extracts are PRIMARY source material — often the contributor's description is one line and the real substance is an attached Doc/Slides/Sheet. When extracts exist, synthesize the chapter FROM THE EXTRACTS; a brief description is completely normal and is never a problem.
 - If sources conflict, prefer the document extracts (they're the artifact of record) and omit the conflicting claim rather than guessing.
 - Choose "replace" ONLY when the submission is clearly an update of one existing chapter (same story/topic); "replaceTitle" must copy that chapter's title EXACTLY. Otherwise "append".
-- Choose "reject" when the material is spam/garbage, a personal support issue, or contains no usable strategy content. An honest reject is better than padding thin material into a fake chapter.`;
+- INCORPORATE BY DEFAULT. Field contributions are valuable even when short: a thin-but-real contribution becomes a short, honest chapter (a few bullets is fine — never pad). Choose "reject" ONLY for: obvious spam/test garbage ("1234", "asdf"), a personal account/support issue, or material with literally no relationship to the strategy section. NEVER reject for brevity, informality, or "not enough information" — that judgment belongs to the humans reviewing the publish PR, not to you.`;
 
 export function buildSynthesisPrompt(args: {
   strategyTitle: string;

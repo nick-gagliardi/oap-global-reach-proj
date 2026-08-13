@@ -250,6 +250,11 @@ export function ReviewQueue() {
                     {c.error}
                   </p>
                 ) : null}
+                {c.status === "declined" && c.error ? (
+                  <p className="mt-2 rounded-md bg-amber-50 p-2 text-xs leading-relaxed text-amber-800">
+                    Declined: {c.error}
+                  </p>
+                ) : null}
                 {c.status === "pending" ? (
                   <p className="mt-2 text-xs text-amber-700">
                     Pipeline never completed (submitter may have closed the tab) — retry below.
@@ -303,6 +308,17 @@ export function ReviewQueue() {
                         Dismiss
                       </button>
                     </>
+                  )}
+                  {c.status === "declined" && (
+                    <button
+                      type="button"
+                      disabled={retryingId === c.id}
+                      onClick={() => retry(c)}
+                      className="rounded-md bg-okta-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-okta-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
+                      title="Re-run the incorporation pipeline for this submission"
+                    >
+                      {retryingId === c.id ? "Incorporating…" : "Reopen & re-run"}
+                    </button>
                   )}
                 </div>
               </li>

@@ -79,7 +79,7 @@ Draft copy is marked `[PLACEHOLDER]` — find/replace as real content lands. Run
 Submissions no longer wait in a human review queue. On submit, the browser drives a
 two-step pipeline (each request stays under the platform's ~30s cap):
 
-1. `POST /api/contributions/[id]/extract` — fetches text exports of linked **Google Docs**.
+1. `POST /api/contributions/[id]/extract` — fetches text exports of linked **Google Docs, Slides, and Sheets**.
    Docs must be shared **"Anyone with the link → Viewer"**; org-restricted docs get a
    per-doc error telling the submitter how to fix sharing. Non-Google links are kept as
    reference-only sources.

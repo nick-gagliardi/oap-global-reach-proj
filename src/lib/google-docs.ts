@@ -1,12 +1,15 @@
 /**
- * Fetch text exports of link-shared Google Docs, server-side, with no Google
- * auth. Works ONLY for docs shared "anyone with the link can view" — the
- * export endpoint returns the document body directly. Org-restricted docs
- * bounce to a Google sign-in page, which we detect and surface as a
- * DocAccessError telling the submitter how to fix sharing.
+ * Fetch text exports of link-shared Google Workspace files (Docs, Slides,
+ * Sheets), server-side, with no Google auth. Works ONLY for files shared
+ * "anyone with the link can view" — the export endpoints return the content
+ * directly. Restricted files bounce to a Google sign-in page, which we detect
+ * and surface as a DocAccessError telling the submitter how to fix sharing.
  */
 
-const DOC_ID_RE = /docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/;
+export type GoogleFileKind = "document" | "presentation" | "spreadsheet";
+
+const GOOGLE_FILE_RE =
+  /docs\.google\.com\/(document|presentation|spreadsheets)\/d\/([a-zA-Z0-9_-]+)/;
 
 export const MAX_DOCS_FETCHED = 3;
 export const MAX_CHARS_PER_DOC = 15_000;
@@ -14,9 +17,10 @@ export const MAX_CHARS_TOTAL = 30_000;
 
 export class DocAccessError extends Error {
   url: string;
-  constructor(url: string) {
+  constructor(url: string, kind: GoogleFileKind) {
+    const label = kind === "presentation" ? "Slides deck" : kind === "spreadsheet" ? "Sheet" : "Doc";
     super(
-      `This Google Doc isn't readable by the hub. Open its Share settings and set ` +
+      `This Google ${label} isn't readable by the hub. Open its Share settings and set ` +
         `"Anyone with the link" → "Viewer", then retry: ${url}`,
     );
     this.name = "DocAccessError";
@@ -24,9 +28,17 @@ export class DocAccessError extends Error {
   }
 }
 
+export function parseGoogleFile(url: string): { kind: GoogleFileKind; id: string } | null {
+  const m = url.match(GOOGLE_FILE_RE);
+  if (!m) return null;
+  const kind: GoogleFileKind =
+    m[1] === "presentation" ? "presentation" : m[1] === "spreadsheets" ? "spreadsheet" : "document";
+  return { kind, id: m[2] };
+}
+
+/** Back-compat helper: is this any fetchable Google Workspace link? */
 export function parseGoogleDocId(url: string): string | null {
-  const m = url.match(DOC_ID_RE);
-  return m ? m[1] : null;
+  return parseGoogleFile(url)?.id ?? null;
 }
 
 export interface DocExtract {
@@ -34,65 +46,79 @@ export interface DocExtract {
   text: string;
 }
 
-async function fetchExport(docId: string, format: "md" | "txt"): Promise<Response> {
-  return fetch(`https://docs.google.com/document/d/${docId}/export?format=${format}`, {
-    redirect: "follow",
-    cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
-  });
+/** Export URL attempts per file kind, best format first. */
+function exportUrls(kind: GoogleFileKind, id: string): string[] {
+  switch (kind) {
+    case "document":
+      return [
+        `https://docs.google.com/document/d/${id}/export?format=md`,
+        `https://docs.google.com/document/d/${id}/export?format=txt`,
+      ];
+    case "presentation":
+      // Slides: plain-text export of the whole deck (titles, bullets, notes).
+      return [`https://docs.google.com/presentation/d/${id}/export/txt`];
+    case "spreadsheet":
+      // First sheet as CSV — usually where the substance lives.
+      return [`https://docs.google.com/spreadsheets/d/${id}/export?format=csv`];
+  }
 }
 
 function looksLikeAuthWall(res: Response): boolean {
   const finalUrl = res.url || "";
   const contentType = res.headers.get("content-type") || "";
-  // Restricted docs redirect to accounts.google.com, or serve an HTML
-  // interstitial instead of the plain-text/markdown export.
+  // Restricted files redirect to accounts.google.com, or serve an HTML
+  // interstitial instead of the text/markdown/csv export.
   return finalUrl.includes("accounts.google.com") || contentType.includes("text/html");
 }
 
 /**
- * Fetch one doc's text. Tries the markdown export first (preserves headings
- * and lists — better synthesis input), falls back to plain text.
- * Throws DocAccessError when the doc isn't link-readable.
+ * Fetch one Google file's text. Throws DocAccessError when it isn't
+ * link-readable.
  */
 export async function fetchDocExport(url: string): Promise<DocExtract> {
-  const docId = parseGoogleDocId(url);
-  if (!docId) throw new Error(`Not a Google Docs URL: ${url}`);
+  const file = parseGoogleFile(url);
+  if (!file) throw new Error(`Not a Google Docs/Slides/Sheets URL: ${url}`);
 
-  for (const format of ["md", "txt"] as const) {
+  const attempts = exportUrls(file.kind, file.id);
+  let lastStatus: number | null = null;
+  for (let i = 0; i < attempts.length; i++) {
+    const isLast = i === attempts.length - 1;
     let res: Response;
     try {
-      res = await fetchExport(docId, format);
+      res = await fetch(attempts[i], {
+        redirect: "follow",
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      });
     } catch (err) {
-      // Network/timeout on the md attempt: try txt before giving up.
-      if (format === "md") continue;
+      if (!isLast) continue;
       throw new Error(
-        `Could not reach Google Docs for ${url}: ${err instanceof Error ? err.message : String(err)}`,
+        `Could not reach Google for ${url}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
-    if (res.ok && !looksLikeAuthWall(res)) {
+    if (looksLikeAuthWall(res)) throw new DocAccessError(url, file.kind);
+    if (res.ok) {
       const text = (await res.text()).slice(0, MAX_CHARS_PER_DOC).trim();
       if (text) return { url, text };
-      // Empty export — fall through to the next format.
-      continue;
+      if (!isLast) continue;
+      throw new Error(`Google export came back empty for ${url}.`);
     }
-    if (looksLikeAuthWall(res)) throw new DocAccessError(url);
-    // Non-OK without an auth wall (e.g. 404 = bad id / deleted doc).
-    if (format === "txt") {
-      throw new Error(`Google Docs returned ${res.status} for ${url} — is the link correct?`);
+    lastStatus = res.status;
+    if (isLast) {
+      throw new Error(`Google returned ${lastStatus} for ${url} — is the link correct?`);
     }
   }
-  throw new Error(`Google Docs export came back empty for ${url}.`);
+  throw new Error(`Google export failed for ${url}.`);
 }
 
 export interface ExtractResult {
   extracts: DocExtract[];
-  /** Links that aren't Google Docs, or Docs beyond the fetch cap — kept as reference-only sources. */
+  /** Links that aren't Google files, or files beyond the fetch cap — kept as reference-only sources. */
   skipped: string[];
   errors: Array<{ url: string; reason: string; sharing: boolean }>;
 }
 
-/** Fetch up to MAX_DOCS_FETCHED Google Docs from a link list; never throws. */
+/** Fetch up to MAX_DOCS_FETCHED Google files from a link list; never throws. */
 export async function extractFromLinks(links: string[]): Promise<ExtractResult> {
   const extracts: DocExtract[] = [];
   const skipped: string[] = [];
@@ -100,7 +126,7 @@ export async function extractFromLinks(links: string[]): Promise<ExtractResult> 
   let totalChars = 0;
 
   for (const url of links) {
-    if (!parseGoogleDocId(url)) {
+    if (!parseGoogleFile(url)) {
       skipped.push(url);
       continue;
     }

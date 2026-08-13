@@ -375,9 +375,9 @@ export function ContributeForm({
           </button>
         )}
         <p className="text-xs text-neutral-500">
-          Google Docs are read and synthesized into the section automatically — set their sharing
-          to <span className="font-medium">“Anyone with the link → Viewer”</span> first. Other
-          links are kept as references.
+          Google Docs, Slides, and Sheets are read and synthesized into the section automatically —
+          set their sharing to <span className="font-medium">“Anyone with the link → Viewer”</span>{" "}
+          first. Other links are kept as references.
         </p>
       </div>
 
