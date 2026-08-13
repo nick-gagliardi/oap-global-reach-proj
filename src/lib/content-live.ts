@@ -31,17 +31,35 @@ function attributionFor(row: Contribution): string {
   return `Contributed by ${row.submitted_by}, ${when}`;
 }
 
+const ALL_REGIONS = ["latam", "apj", "emea", "pubsec"];
+
+/**
+ * Wrap markdown in :::region blocks when the contribution targets a strict
+ * subset of regions. A single-region contribution (e.g. ["pubsec"]) wraps its
+ * content so the region filter hides it for non-matching views. Multi-region
+ * subsets get one block per region (content duplicated — acceptable for the
+ * typical 1–2 region case). Global contributions (all 4 or none) are left
+ * unwrapped so they always render.
+ */
+function wrapForRegions(markdown: string, regions: string[]): string {
+  const scoped = regions.filter((r) => ALL_REGIONS.includes(r));
+  if (scoped.length === 0 || scoped.length === ALL_REGIONS.length) return markdown;
+  return scoped.map((r) => `:::region ${r}\n${markdown.trim()}\n:::`).join("\n\n");
+}
+
 /** Fold one slug's addenda into a body string, oldest first. */
 export function mergeAddendaIntoBody(body: string, addenda: Contribution[]): string {
   let merged = body;
   for (const row of addenda) {
+    const regions: string[] = Array.isArray(row.regions) ? row.regions : [];
+    const markdown = wrapForRegions(row.chapter_markdown!, regions);
     const result = spliceChapter(
       merged,
       {
         mode: row.mode === "replace" ? "replace" : "append",
         chapterTitle: row.chapter_title!,
         replaceTitle: row.replace_title ?? undefined,
-        markdown: row.chapter_markdown!,
+        markdown,
       },
       attributionFor(row),
     );
