@@ -86,6 +86,59 @@ export function ReviewQueue() {
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<Array<{ name: string; text: string }>>([]);
   const [updateBusy, setUpdateBusy] = useState(false);
+  // "Edit" panel state.
+  const [editFor, setEditFor] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [editRegions, setEditRegions] = useState<string[]>([]);
+  const [editLinks, setEditLinks] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
+
+  function openEdit(c: Contribution) {
+    setEditFor(c.id);
+    setEditContent(c.content);
+    setEditRegions(c.regions);
+    setEditLinks(c.resource_links.join("\n"));
+    setUpdateFor(null);
+  }
+
+  async function saveEdit(c: Contribution) {
+    setEditBusy(true);
+    setNotice(null);
+    try {
+      const resource_links = editLinks
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      const res = await fetch(`/api/contributions/${c.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editContent, regions: editRegions, resource_links }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) {
+        setState((prev) =>
+          prev.kind === "ready"
+            ? {
+                kind: "ready",
+                items: prev.items.map((i) =>
+                  i.id === c.id
+                    ? { ...i, content: editContent, regions: editRegions, resource_links }
+                    : i,
+                ),
+              }
+            : prev,
+        );
+        setEditFor(null);
+        setNotice("Edits saved.");
+      } else {
+        setNotice(data?.error || `Save failed (${res.status}).`, true);
+      }
+    } catch {
+      setNotice("Network error saving edits.", true);
+    } finally {
+      setEditBusy(false);
+    }
+  }
 
   async function addUpdateFiles(files: FileList | null) {
     if (!files) return;
@@ -357,6 +410,13 @@ export function ReviewQueue() {
                 )}
 
                 <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => editFor === c.id ? setEditFor(null) : openEdit(c)}
+                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+                  >
+                    {editFor === c.id ? "Cancel edit" : "Edit"}
+                  </button>
                   {c.status === "incorporated" && (
                     <>
                       <a
@@ -445,6 +505,59 @@ export function ReviewQueue() {
                     </>
                   )}
                 </div>
+
+                {editFor === c.id && (
+                  <div className="mt-3 space-y-2.5 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                    <p className="text-xs font-medium text-neutral-700">Edit submission</p>
+                    <div>
+                      <label className="mb-1 block text-xs text-neutral-600">Description</label>
+                      <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        rows={4}
+                        maxLength={20_000}
+                        className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-okta-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-neutral-600">Regions</label>
+                      <div className="flex flex-wrap gap-3">
+                        {(["latam", "apj", "emea", "pubsec", "namer"] as const).map((r) => (
+                          <label key={r} className="flex items-center gap-1.5 text-sm text-neutral-700">
+                            <input
+                              type="checkbox"
+                              checked={editRegions.includes(r)}
+                              onChange={(e) =>
+                                setEditRegions((prev) =>
+                                  e.target.checked ? [...prev, r] : prev.filter((x) => x !== r),
+                                )
+                              }
+                            />
+                            {r.toUpperCase()}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-neutral-600">Resource links (one per line)</label>
+                      <textarea
+                        value={editLinks}
+                        onChange={(e) => setEditLinks(e.target.value)}
+                        rows={3}
+                        placeholder="https://..."
+                        className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 font-mono text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-okta-500"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      disabled={editBusy || editContent.trim().length < 1}
+                      onClick={() => saveEdit(c)}
+                      className="rounded-md bg-okta-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-okta-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
+                    >
+                      {editBusy ? "Saving…" : "Save edits"}
+                    </button>
+                  </div>
+                )}
 
                 {updateFor === c.id && (
                   <div className="mt-3 space-y-2.5 rounded-lg border border-okta-200 bg-okta-50/40 p-3">

@@ -22,6 +22,19 @@ export default async function TrackerPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-12">
+      <section aria-labelledby="queue-heading" className="rise rise-d3 space-y-5">
+        <div className="space-y-1">
+          <h2 id="queue-heading" className="text-xl font-semibold tracking-tight text-neutral-900">
+            Contribution activity
+          </h2>
+          <p className="text-sm text-neutral-600">
+            Submissions are synthesized and published to their section automatically — this is the
+            record, with unpublish/republish controls.
+          </p>
+        </div>
+        <ReviewQueue />
+      </section>
+
       <section aria-labelledby="status-heading" className="space-y-6">
         <header className="rise space-y-3">
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-okta-600">
@@ -77,18 +90,6 @@ export default async function TrackerPage() {
         </ol>
       </section>
 
-      <section aria-labelledby="queue-heading" className="rise rise-d3 space-y-5">
-        <div className="space-y-1">
-          <h2 id="queue-heading" className="text-xl font-semibold tracking-tight text-neutral-900">
-            Contribution activity
-          </h2>
-          <p className="text-sm text-neutral-600">
-            Submissions are synthesized and published to their section automatically — this is the
-            record, with unpublish/republish controls.
-          </p>
-        </div>
-        <ReviewQueue />
-      </section>
     </div>
   );
 }

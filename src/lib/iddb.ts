@@ -129,6 +129,8 @@ export async function patchContribution(
       | "replace_title"
       | "mode"
       | "content"
+      | "regions"
+      | "resource_links"
       | "attachments"
       | "content_updated_at"
     >

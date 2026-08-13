@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { UnprovisionedError, updateContributionStatus } from "@/lib/iddb";
+import { UnprovisionedError, updateContributionStatus, patchContribution } from "@/lib/iddb";
 import { getRequestIdentity } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
 
-const PatchSchema = z.object({
-  status: z.enum(["pending", "incorporated", "declined"]),
-});
+const PatchSchema = z.union([
+  z.object({ status: z.enum(["pending", "incorporated", "declined", "failed"]) }),
+  z.object({
+    content: z.string().trim().min(1).max(20_000).optional(),
+    regions: z.array(z.string()).max(5).optional(),
+    resource_links: z.array(z.string().url()).max(10).optional(),
+  }),
+]);
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -18,11 +23,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   let body: z.infer<typeof PatchSchema>;
   try {
     body = PatchSchema.parse(await req.json());
-  } catch {
-    return NextResponse.json(
-      { error: "Invalid request: status must be pending | incorporated | declined" },
-      { status: 400 },
-    );
+  } catch (err) {
+    const detail = err instanceof z.ZodError ? err.issues.map((i) => i.message).join("; ") : "Invalid body";
+    return NextResponse.json({ error: `Invalid request: ${detail}` }, { status: 400 });
   }
 
   // Optional review-gate. Enforced only when ADMIN_EMAILS is configured AND an
@@ -43,7 +46,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   }
 
   try {
-    const updated = await updateContributionStatus(id, body.status);
+    let updated;
+    if ("status" in body) {
+      updated = await updateContributionStatus(id, body.status);
+    } else {
+      const fields: Parameters<typeof patchContribution>[1] = {};
+      if (body.content !== undefined) fields.content = body.content;
+      if (body.regions !== undefined) fields.regions = body.regions;
+      if (body.resource_links !== undefined) fields.resource_links = body.resource_links;
+      updated = await patchContribution(id, fields);
+    }
     if (!updated) {
       return NextResponse.json({ error: "Contribution not found" }, { status: 404 });
     }
