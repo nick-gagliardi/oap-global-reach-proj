@@ -1,6 +1,6 @@
 import { cache } from "react";
-import { getGuides, getObjections, getRegions, getSectionStatuses, getVerticals } from "./content";
-import { getAllStrategiesLive } from "./content-live";
+import { getGuides, getObjections, getRegions, getVerticals } from "./content";
+import { getAllStrategiesLive, getSectionStatusesLive } from "./content-live";
 
 function doc(title: string, body: string): string {
   return `<doc title="${title}">\n${body.trim()}\n</doc>`;
@@ -24,7 +24,7 @@ export const buildAssistantSystemPrompt = cache(async (): Promise<string> => {
     if (s.body.trim()) docs.push(doc(`Workstream section: ${s.title}`, s.body));
   }
 
-  const statusTable = getSectionStatuses()
+  const statusTable = (await getSectionStatusesLive())
     .map(
       (s) =>
         `- ${s.title} (slug: ${s.slug}) — status: ${s.status === "placeholder" ? "awaiting content" : s.status}, owner: ${s.owner}`,
