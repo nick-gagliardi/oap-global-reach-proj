@@ -7,6 +7,7 @@ import {
   type StrategyDoc,
 } from "./content";
 import { spliceChapter } from "./incorporate";
+import { REGIONS } from "./regions";
 import { listIncorporatedBySlug, type Contribution } from "./iddb";
 
 /**
@@ -39,7 +40,7 @@ function attributionFor(row: Contribution): string {
   return attribution;
 }
 
-const ALL_REGIONS = ["latam", "apj", "emea", "pubsec"];
+const ALL_REGIONS: readonly string[] = REGIONS;
 
 /**
  * Wrap markdown in :::region blocks when the contribution targets a strict
@@ -81,13 +82,45 @@ export function mergeAddendaIntoBody(body: string, addenda: Contribution[]): str
   return merged;
 }
 
+/** Distinct contributor names, in first-contribution order. */
+function contributorsFor(addenda: Contribution[]): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const row of addenda) {
+    const name = row.submitted_by.trim();
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    names.push(name);
+  }
+  return names;
+}
+
+/** Latest of the frontmatter date and every addendum's created/updated date, as YYYY-MM-DD. */
+function liveLastUpdated(frontmatterDate: string, addenda: Contribution[]): string {
+  let latest = frontmatterDate;
+  for (const row of addenda) {
+    for (const iso of [row.created_at, row.content_updated_at]) {
+      if (!iso) continue;
+      const day = new Date(iso).toISOString().slice(0, 10);
+      if (day > latest) latest = day;
+    }
+  }
+  return latest;
+}
+
 function withAddenda(doc: StrategyDoc, addenda: Contribution[] | undefined): StrategyDoc {
   if (!addenda?.length) return doc;
   try {
     const body = mergeAddendaIntoBody(doc.body, addenda);
+    const contributors = contributorsFor(addenda);
     return {
       ...doc,
       body,
+      // Sections with live contributions belong to their contributors — the
+      // generic frontmatter owner is replaced by the submitter names.
+      owner: contributors.length > 0 ? contributors.join(", ") : doc.owner,
+      last_updated: liveLastUpdated(doc.last_updated, addenda),
       segments: splitRegionSegments(body, `content/strategies/${doc.slug}.md (live)`),
     };
   } catch {
@@ -118,12 +151,14 @@ export interface SectionStatusLiveRow extends SectionStatusRow {
 export const getSectionStatusesLive = cache(async (): Promise<SectionStatusLiveRow[]> => {
   const addenda = await getAddenda();
   return getSectionStatuses().map((row) => {
-    const addendaCount = addenda.get(row.slug)?.length ?? 0;
+    const rows = addenda.get(row.slug) ?? [];
+    const contributors = contributorsFor(rows);
     return {
       ...row,
-      addendaCount,
-      effectiveStatus:
-        row.status === "placeholder" && addendaCount > 0 ? "in-progress" : row.status,
+      owner: contributors.length > 0 ? contributors.join(", ") : row.owner,
+      last_updated: liveLastUpdated(row.last_updated, rows),
+      addendaCount: rows.length,
+      effectiveStatus: row.status === "placeholder" && rows.length > 0 ? "in-progress" : row.status,
     };
   });
 });

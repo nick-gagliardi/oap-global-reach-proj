@@ -25,15 +25,19 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     );
   }
 
-  // Optional review-gate: only enforced when ADMIN_EMAILS is configured AND
-  // the platform exposes a trustworthy identity (Phase 1 discovery).
+  // Optional review-gate. Enforced only when ADMIN_EMAILS is configured AND an
+  // identity header is actually present. When identity discovery is incomplete
+  // (getRequestIdentity → null because the platform's header name is unknown),
+  // we FAIL OPEN behind the iddb employee-auth perimeter — the old behavior
+  // 403'd every status change for everyone, which silently broke Dismiss/
+  // Unpublish/Republish in prod the moment ADMIN_EMAILS was set.
   const adminEmails = (process.env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
   if (adminEmails.length > 0) {
     const identity = getRequestIdentity(req.headers);
-    if (!identity?.email || !adminEmails.includes(identity.email.toLowerCase())) {
+    if (identity?.email && !adminEmails.includes(identity.email.toLowerCase())) {
       return NextResponse.json({ error: "Not authorized to review contributions" }, { status: 403 });
     }
   }

@@ -3,10 +3,11 @@
  * source of truth used by frontmatter, URL params, and the prep API.
  */
 
-export const REGIONS = ["latam", "apj", "emea", "pubsec"] as const;
+export const REGIONS = ["namer", "latam", "apj", "emea", "pubsec"] as const;
 export type Region = (typeof REGIONS)[number];
 
 export const REGION_LABELS: Record<Region, string> = {
+  namer: "NAMER",
   latam: "LATAM",
   apj: "APJ",
   emea: "EMEA",
@@ -18,6 +19,7 @@ export const REGION_LABELS: Record<Region, string> = {
  * Tailwind arbitrary values keep everything in one place.
  */
 export const REGION_COLORS: Record<Region, { bg: string; text: string }> = {
+  namer: { bg: "bg-rose-100", text: "text-rose-900" },
   latam: { bg: "bg-amber-100", text: "text-amber-900" },
   apj: { bg: "bg-emerald-100", text: "text-emerald-900" },
   emea: { bg: "bg-sky-100", text: "text-sky-900" },

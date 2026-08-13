@@ -77,7 +77,9 @@ async function fetchTab(which: Tab): Promise<ViewState> {
 export function ReviewQueue() {
   const [tab, setTab] = useState<Tab>("incorporated");
   const [state, setState] = useState<ViewState>({ kind: "loading" });
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNoticeState] = useState<{ text: string; error?: boolean } | null>(null);
+  const setNotice = (text: string | null, error = false) =>
+    setNoticeState(text ? { text, error } : null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   // "Add update" panel state (one open panel at a time).
   const [updateFor, setUpdateFor] = useState<string | null>(null);
@@ -117,12 +119,12 @@ export function ReviewQueue() {
         setUpdateText("");
         setUpdateFiles([]);
       } else if (res.status === 422 && data?.rejected) {
-        setNotice(`Update not applied: ${data.reason ?? "judged not usable."}`);
+        setNotice(`Update not applied: ${data.reason ?? "judged not usable."}`, true);
       } else {
-        setNotice(data?.error || `Update failed (${res.status}).`);
+        setNotice(data?.error || `Update failed (${res.status}).`, true);
       }
     } catch {
-      setNotice("Network error during update.");
+      setNotice("Network error during update.", true);
     } finally {
       setUpdateBusy(false);
     }
@@ -146,7 +148,7 @@ export function ReviewQueue() {
       const exRes = await fetch(`/api/contributions/${c.id}/extract`, { method: "POST" });
       const exData = await exRes.json().catch(() => null);
       if (!exRes.ok) {
-        setNotice(exData?.error || `Could not read attachments (${exRes.status}).`);
+        setNotice(exData?.error || `Could not read attachments (${exRes.status}).`, true);
         return;
       }
       if (exData?.ok === false) {
@@ -154,6 +156,7 @@ export function ReviewQueue() {
         setNotice(
           sharing.map((e: { reason: string }) => e.reason).join(" ") ||
             "The linked file is restricted and no attachment was provided.",
+          true,
         );
         return;
       }
@@ -178,10 +181,10 @@ export function ReviewQueue() {
             : prev,
         );
       } else {
-        setNotice(incData?.error || `Incorporation failed (${incRes.status}).`);
+        setNotice(incData?.error || `Incorporation failed (${incRes.status}).`, true);
       }
     } catch {
-      setNotice("Network error during retry.");
+      setNotice("Network error during retry.", true);
     } finally {
       setRetryingId(null);
     }
@@ -204,13 +207,13 @@ export function ReviewQueue() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setNotice(data?.error || `Update failed (${res.status}) — restored the item.`);
+        setNotice(data?.error || `Update failed (${res.status}) — restored the item.`, true);
         setState({ kind: "ready", items: prevItems });
         return;
       }
       setNotice(`${noun}.`);
     } catch {
-      setNotice("Network error — restored the item.");
+      setNotice("Network error — restored the item.", true);
       setState({ kind: "ready", items: prevItems });
     }
   }
@@ -245,7 +248,17 @@ export function ReviewQueue() {
       </div>
 
       <div aria-live="polite">
-        {notice && <p className="text-sm text-neutral-600">{notice}</p>}
+        {notice && (
+          <p
+            className={
+              notice.error
+                ? "rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900"
+                : "text-sm text-neutral-600"
+            }
+          >
+            {notice.text}
+          </p>
+        )}
       </div>
 
       {state.kind === "loading" && (
