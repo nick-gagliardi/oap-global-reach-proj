@@ -3,7 +3,7 @@ title: "Success Stories"
 strategy_number: 6
 owner: "OAP Global Reach"
 regions: [latam, apj, emea, pubsec]
-status: complete
+status: in-progress
 last_updated: 2026-07-28
 summary: "Evidence library of what past international attendees got out of Oktane — outcomes, quotes, and before/after stories reps can use to make the case"
 ---
