@@ -1,0 +1,16 @@
+name: Deploy to iddb
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy
+        run: |
+          curl -sf -X POST \
+            "https://app.platform.atko.ai/v1/tenants/oap-global-reach/apps/oap-global-reach-proj/deploy" \
+            -H "Authorization: Bearer ${{ secrets.IDDB_DEPLOY_KEY }}" \
+            -H "Content-Type: application/json"
