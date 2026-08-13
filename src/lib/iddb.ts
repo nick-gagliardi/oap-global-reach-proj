@@ -30,7 +30,7 @@ function iddbFetch(path: string, options: RequestInit = {}) {
   });
 }
 
-export type ContributionStatus = "pending" | "incorporated" | "declined";
+export type ContributionStatus = "pending" | "incorporated" | "declined" | "failed";
 
 export interface Contribution {
   id: string;
@@ -41,6 +41,12 @@ export interface Contribution {
   content: string;
   resource_links: string[]; // jsonb
   status: ContributionStatus;
+  /** Pipeline failure detail (status 'failed'). Migration 002. */
+  error?: string | null;
+  /** PR opened by the incorporation pipeline (status 'incorporated'). Migration 002. */
+  pr_url?: string | null;
+  /** Chapter the pipeline added/updated. Migration 002. */
+  chapter_title?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -89,9 +95,24 @@ export async function updateContributionStatus(
   id: string,
   status: ContributionStatus,
 ): Promise<Contribution | null> {
+  return patchContribution(id, { status });
+}
+
+/** Fetch a single contribution by id. */
+export async function getContribution(id: string): Promise<Contribution | null> {
+  const res = await iddbFetch(`/rest/v1/contributions?id=eq.${encodeURIComponent(id)}&select=*`);
+  const rows = (await readOrThrow(res)) as Contribution[];
+  return rows?.[0] ?? null;
+}
+
+/** Patch arbitrary pipeline fields (status, error, pr_url, chapter_title). */
+export async function patchContribution(
+  id: string,
+  fields: Partial<Pick<Contribution, "status" | "error" | "pr_url" | "chapter_title">>,
+): Promise<Contribution | null> {
   const res = await iddbFetch(`/rest/v1/contributions?id=eq.${encodeURIComponent(id)}`, {
     method: "PATCH",
-    body: JSON.stringify({ status, updated_at: new Date().toISOString() }),
+    body: JSON.stringify({ ...fields, updated_at: new Date().toISOString() }),
   });
   const rows = (await readOrThrow(res)) as Contribution[];
   // PostgREST returns 200 + [] when no row matched — treat as not found.
@@ -99,7 +120,8 @@ export async function updateContributionStatus(
 }
 
 export async function countPending(): Promise<number> {
-  const res = await iddbFetch("/rest/v1/contributions?status=eq.pending&select=id", {
+  // "Needs attention" count: pending (pipeline never completed) + failed.
+  const res = await iddbFetch("/rest/v1/contributions?status=in.(pending,failed)&select=id", {
     headers: { Prefer: "count=exact", Range: "0-0" },
   });
   if (!res.ok) {

@@ -53,10 +53,14 @@ Draft copy is marked `[PLACEHOLDER]` — find/replace as real content lands. Run
    `main` → production auto-deploy; branches → preview URLs.
 2. The platform injects `IDDB_URL`, `IDDB_APP_KEY`/`IDDB_SERVICE_KEY`/`IDDB_ANON_KEY`,
    `IDDB_LLM_BASE_URL`, `IDDB_LLM_KEY`. No manual LLM key.
-3. **Before contribution features work:** run [`db/schema.sql`](db/schema.sql) against the
-   app's iddb Postgres via platform tooling. Until then the app degrades gracefully.
-4. Post-deploy checks:
-   - `GET /api/health` — env booleans + `db: ok|unprovisioned|error`.
+3. **Before contribution features work:** run [`db/schema.sql`](db/schema.sql), then
+   [`db/migrations/002-incorporation.sql`](db/migrations/002-incorporation.sql), against the
+   app's iddb Postgres via platform tooling (finish with `NOTIFY pgrst, 'reload schema';`).
+   Until then the app degrades gracefully.
+4. **Before the incorporation pipeline works:** set `HUB_GITHUB_TOKEN` (a PAT with repo
+   scope on the hub repo). Without it, submissions save but incorporation returns a clear 503.
+5. Post-deploy checks:
+   - `GET /api/health` — env booleans (incl. `github`) + `db: ok|unprovisioned|error`.
    - `GET /api/whoami` — inspect in an authenticated browser to confirm which header carries
      the employee identity, then update `src/lib/identity.ts` accordingly (Discovery A).
 
@@ -66,6 +70,31 @@ Draft copy is marked `[PLACEHOLDER]` — find/replace as real content lands. Run
 | `PREP_TIMEOUT_MS` | LLM abort timeout, default 25000 — never higher (30s gateway cap) |
 | `ADMIN_EMAILS` | Comma-separated reviewer allowlist for contribution status changes (needs confirmed identity header) |
 | `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_KEY` | Local-dev LLM fallback only |
+| `HUB_GITHUB_TOKEN` | PAT (repo scope) the incorporation pipeline uses to open content PRs |
+| `HUB_GITHUB_REPO` | Content repo for PRs (default `nickgag626/oap-global-reach-hub`) |
+| `HUB_GITHUB_BASE_BRANCH` | PR base branch (default `main`) |
+
+## Contribution incorporation pipeline
+
+Submissions no longer wait in a human review queue. On submit, the browser drives a
+two-step pipeline (each request stays under the platform's ~30s cap):
+
+1. `POST /api/contributions/[id]/extract` — fetches text exports of linked **Google Docs**.
+   Docs must be shared **"Anyone with the link → Viewer"**; org-restricted docs get a
+   per-doc error telling the submitter how to fix sharing. Non-Google links are kept as
+   reference-only sources.
+2. `POST /api/contributions/[id]/incorporate` — the LLM reviews the contribution + doc
+   extracts and synthesizes ONE house-style `## ` chapter (grounding rules: never invent;
+   reject spam/thin material outright). The chapter is spliced into
+   `content/strategies/<slug>.md` on `## ` boundaries (existing chapters are never
+   regenerated), frontmatter is bumped (`last_updated`, `placeholder → in-progress`), the
+   result is validated with the same schema/parsers the build uses, and a **publish PR** is
+   opened on the content repo. **Merging the PR is what publishes** (auto-deploy) — the
+   submitter is told content appears a few minutes after approval.
+
+Failures set `status: failed` with the error recorded; the tracker's **Needs attention**
+tab can re-run the pipeline or dismiss junk. A model-rejected submission lands in
+**Declined** with the reason.
 
 ## Architecture notes
 

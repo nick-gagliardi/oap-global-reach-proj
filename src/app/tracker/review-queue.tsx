@@ -5,6 +5,14 @@ import { isRegion } from "@/lib/regions";
 import { RegionBadge } from "@/components/region-badge";
 import { Spinner } from "@/components/spinner";
 
+/**
+ * Contribution activity. The human review queue is gone — submissions run
+ * through the AI incorporation pipeline (synthesize → validate → publish PR)
+ * as they arrive. This view shows what happened: incorporated items link to
+ * their publish PR; stuck or failed items ("needs attention") can be re-run
+ * from here; declined covers editorial rejects and manual dismissals.
+ */
+
 interface Contribution {
   id: string;
   submitted_by: string;
@@ -13,11 +21,20 @@ interface Contribution {
   regions: string[];
   content: string;
   resource_links: string[];
-  status: "pending" | "incorporated" | "declined";
+  status: "pending" | "incorporated" | "declined" | "failed";
+  error?: string | null;
+  pr_url?: string | null;
+  chapter_title?: string | null;
   created_at: string;
 }
 
-type Tab = "pending" | "incorporated" | "declined";
+type Tab = "attention" | "incorporated" | "declined";
+
+const TAB_LABELS: Record<Tab, string> = {
+  attention: "Needs attention",
+  incorporated: "Incorporated",
+  declined: "Declined",
+};
 
 type ViewState =
   | { kind: "loading" }
@@ -26,28 +43,44 @@ type ViewState =
   | { kind: "error"; message: string };
 
 /** Pure fetch — returns the next view state, never touches React state itself. */
-async function fetchQueue(which: Tab): Promise<ViewState> {
+async function fetchTab(which: Tab): Promise<ViewState> {
   try {
+    if (which === "attention") {
+      // pending (pipeline never finished — tab closed mid-run) + failed.
+      const [pending, failed] = await Promise.all([
+        fetch("/api/contributions?status=pending"),
+        fetch("/api/contributions?status=failed"),
+      ]);
+      const pData = await pending.json().catch(() => null);
+      const fData = await failed.json().catch(() => null);
+      if (pending.status === 503 || failed.status === 503) return { kind: "unprovisioned" };
+      if (!pending.ok || !fData) {
+        return { kind: "error", message: pData?.error || fData?.error || "Failed to load." };
+      }
+      const items = [...(pData?.contributions ?? []), ...(fData?.contributions ?? [])].sort(
+        (a: Contribution, b: Contribution) => (a.created_at < b.created_at ? 1 : -1),
+      );
+      return { kind: "ready", items };
+    }
     const res = await fetch(`/api/contributions?status=${which}`);
     const data = await res.json().catch(() => null);
     if (res.ok && data?.ok) return { kind: "ready", items: data.contributions };
     if (res.status === 503) return { kind: "unprovisioned" };
     return { kind: "error", message: data?.error || `Failed to load (${res.status}).` };
   } catch {
-    return { kind: "error", message: "Network error loading the queue." };
+    return { kind: "error", message: "Network error loading contributions." };
   }
 }
 
 export function ReviewQueue() {
-  const [tab, setTab] = useState<Tab>("pending");
+  const [tab, setTab] = useState<Tab>("incorporated");
   const [state, setState] = useState<ViewState>({ kind: "loading" });
   const [notice, setNotice] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
 
-  // Loading state is set by the initializer / tab clicks, not here; setState
-  // only runs in the promise callback (and never after unmount or a tab switch).
   useEffect(() => {
     let alive = true;
-    fetchQueue(tab).then((next) => {
+    fetchTab(tab).then((next) => {
       if (alive) setState(next);
     });
     return () => {
@@ -55,7 +88,54 @@ export function ReviewQueue() {
     };
   }, [tab]);
 
-  async function setStatus(id: string, status: "incorporated" | "declined") {
+  /** Re-drive the incorporation pipeline for a stuck/failed contribution. */
+  async function retry(c: Contribution) {
+    setRetryingId(c.id);
+    setNotice(null);
+    try {
+      const exRes = await fetch(`/api/contributions/${c.id}/extract`, { method: "POST" });
+      const exData = await exRes.json().catch(() => null);
+      if (!exRes.ok) {
+        setNotice(exData?.error || `Could not read attachments (${exRes.status}).`);
+        return;
+      }
+      const sharing = (exData?.errors ?? []).filter((e: { sharing?: boolean }) => e.sharing);
+      if (sharing.length > 0) {
+        setNotice(sharing.map((e: { reason: string }) => e.reason).join(" "));
+        return;
+      }
+      const incRes = await fetch(`/api/contributions/${c.id}/incorporate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ extracts: exData?.extracts ?? [] }),
+      });
+      const incData = await incRes.json().catch(() => null);
+      if (incRes.ok && incData?.ok) {
+        setNotice(`Incorporated — PR opened for "${incData.chapterTitle ?? c.strategy_slug}".`);
+        setState((prev) =>
+          prev.kind === "ready"
+            ? { kind: "ready", items: prev.items.filter((i) => i.id !== c.id) }
+            : prev,
+        );
+      } else if (incRes.status === 422 && incData?.rejected) {
+        setNotice(`Declined by the reviewer: ${incData.reason ?? "not usable as strategy content."}`);
+        setState((prev) =>
+          prev.kind === "ready"
+            ? { kind: "ready", items: prev.items.filter((i) => i.id !== c.id) }
+            : prev,
+        );
+      } else {
+        setNotice(incData?.error || `Incorporation failed (${incRes.status}).`);
+      }
+    } catch {
+      setNotice("Network error during retry.");
+    } finally {
+      setRetryingId(null);
+    }
+  }
+
+  /** Manual dismiss for junk (kept from the old queue as an admin override). */
+  async function dismiss(id: string) {
     if (state.kind !== "ready") return;
     const prevItems = state.items;
     setState({ kind: "ready", items: prevItems.filter((c) => c.id !== id) });
@@ -63,7 +143,7 @@ export function ReviewQueue() {
       const res = await fetch(`/api/contributions/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: "declined" }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -71,7 +151,7 @@ export function ReviewQueue() {
         setState({ kind: "ready", items: prevItems });
         return;
       }
-      setNotice(`Marked as ${status}.`);
+      setNotice("Dismissed.");
     } catch {
       setNotice("Network error — restored the item.");
       setState({ kind: "ready", items: prevItems });
@@ -87,10 +167,10 @@ export function ReviewQueue() {
     <div className="space-y-4">
       <div
         role="tablist"
-        aria-label="Contribution status"
+        aria-label="Contribution activity"
         className="inline-flex gap-1 rounded-lg border border-neutral-200 bg-white p-1"
       >
-        {(["pending", "incorporated", "declined"] as const).map((t) => (
+        {(["incorporated", "attention", "declined"] as const).map((t) => (
           <button
             key={t}
             role="tab"
@@ -101,7 +181,7 @@ export function ReviewQueue() {
             }}
             className={tabCls(t)}
           >
-            {t[0].toUpperCase() + t.slice(1)}
+            {TAB_LABELS[t]}
           </button>
         ))}
       </div>
@@ -119,7 +199,7 @@ export function ReviewQueue() {
       {state.kind === "unprovisioned" && (
         <p className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
           The contribution store isn&apos;t provisioned yet — run <code>db/schema.sql</code> via
-          platform tooling (see the README) and this queue will light up.
+          platform tooling (see the README) and this view will light up.
         </p>
       )}
 
@@ -131,20 +211,31 @@ export function ReviewQueue() {
 
       {state.kind === "ready" &&
         (state.items.length === 0 ? (
-          <p className="text-sm text-neutral-600">Nothing {tab} right now.</p>
+          <p className="text-sm text-neutral-600">
+            {tab === "attention"
+              ? "Nothing needs attention — every submission has been processed."
+              : `Nothing ${tab === "incorporated" ? "incorporated" : "declined"} yet.`}
+          </p>
         ) : (
           <ul className="space-y-3">
             {state.items.map((c) => (
               <li
                 key={c.id}
                 className={`rounded-xl border border-neutral-200 bg-white p-4 ${
-                  tab === "pending" ? "border-l-4 border-l-okta-500" : ""
+                  c.status === "failed"
+                    ? "border-l-4 border-l-red-400"
+                    : c.status === "pending"
+                      ? "border-l-4 border-l-amber-400"
+                      : ""
                 }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-semibold text-neutral-900">{c.submitted_by}</span>
                     <span className="text-neutral-500">→ {c.strategy_slug}</span>
+                    {c.chapter_title ? (
+                      <span className="text-neutral-500">· “{c.chapter_title}”</span>
+                    ) : null}
                     {c.regions.filter(isRegion).map((r) => (
                       <RegionBadge key={r} region={r} />
                     ))}
@@ -153,6 +244,18 @@ export function ReviewQueue() {
                     {new Date(c.created_at).toLocaleDateString()}
                   </span>
                 </div>
+
+                {c.status === "failed" && c.error ? (
+                  <p className="mt-2 rounded-md bg-red-50 p-2 text-xs leading-relaxed text-red-800">
+                    {c.error}
+                  </p>
+                ) : null}
+                {c.status === "pending" ? (
+                  <p className="mt-2 text-xs text-amber-700">
+                    Pipeline never completed (submitter may have closed the tab) — retry below.
+                  </p>
+                ) : null}
+
                 <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-800">{c.content}</p>
                 {c.resource_links.length > 0 && (
                   <ul className="mt-2 space-y-1 text-sm">
@@ -170,24 +273,38 @@ export function ReviewQueue() {
                     ))}
                   </ul>
                 )}
-                {tab === "pending" && (
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setStatus(c.id, "incorporated")}
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {c.status === "incorporated" && c.pr_url ? (
+                    <a
+                      href={c.pr_url}
+                      target="_blank"
+                      rel="noreferrer"
                       className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800"
                     >
-                      Mark incorporated
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStatus(c.id, "declined")}
-                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
-                    >
-                      Decline
-                    </button>
-                  </div>
-                )}
+                      View publish PR →
+                    </a>
+                  ) : null}
+                  {(c.status === "pending" || c.status === "failed") && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={retryingId === c.id}
+                        onClick={() => retry(c)}
+                        className="rounded-md bg-okta-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-okta-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
+                      >
+                        {retryingId === c.id ? "Incorporating…" : "Run incorporation"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => dismiss(c.id)}
+                        className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+                      >
+                        Dismiss
+                      </button>
+                    </>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
