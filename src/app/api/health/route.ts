@@ -17,6 +17,8 @@ export async function GET() {
     ),
     llmBase: !!(process.env.IDDB_LLM_BASE_URL || process.env.ANTHROPIC_BASE_URL),
     llmKey: !!(process.env.IDDB_LLM_KEY || process.env.ANTHROPIC_API_KEY),
+    // Incorporation pipeline (contribution → publish PR).
+    github: !!process.env.HUB_GITHUB_TOKEN,
   };
 
   let db: "ok" | "unprovisioned" | "error" | "unconfigured" = "unconfigured";
@@ -41,5 +43,11 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ ok: Object.values(env).every(Boolean) && db === "ok", env, db });
+  // `github` is reported but doesn't gate overall ok: without it the app runs
+  // fine — only the incorporation pipeline is disabled (503 with a clear message).
+  return NextResponse.json({
+    ok: env.iddbUrl && env.iddbKey && env.llmBase && env.llmKey && db === "ok",
+    env,
+    db,
+  });
 }

@@ -23,7 +23,7 @@ const CreateSchema = z.object({
     .default([]),
 });
 
-const STATUSES: ContributionStatus[] = ["pending", "incorporated", "declined"];
+const STATUSES: ContributionStatus[] = ["pending", "incorporated", "declined", "failed"];
 
 export async function POST(req: Request) {
   let body: z.infer<typeof CreateSchema>;
