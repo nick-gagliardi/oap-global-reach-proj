@@ -20,8 +20,10 @@ export class DocAccessError extends Error {
   constructor(url: string, kind: GoogleFileKind) {
     const label = kind === "presentation" ? "Slides deck" : kind === "spreadsheet" ? "Sheet" : "Doc";
     super(
-      `This Google ${label} isn't readable by the hub. Open its Share settings and set ` +
-        `"Anyone with the link" → "Viewer", then retry: ${url}`,
+      `This Google ${label} isn't readable by the hub (${url}). If your organization restricts ` +
+        `link sharing — Okta's Workspace does — the fix is to export the file (File → Download → ` +
+        `Plain text) and ATTACH it to your submission instead. True "anyone with the link" sharing ` +
+        `also works, but Workspace policy may scope that to org members only.`,
     );
     this.name = "DocAccessError";
     this.url = url;

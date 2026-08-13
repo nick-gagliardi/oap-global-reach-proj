@@ -42,7 +42,32 @@ export function ContributeForm({
   const [regions, setRegions] = useState<Region[]>([]);
   const [content, setContent] = useState("");
   const [links, setLinks] = useState<string[]>([""]);
+  const [attachments, setAttachments] = useState<Array<{ name: string; text: string; truncated: boolean }>>([]);
+  const [attachNote, setAttachNote] = useState<string | null>(null);
   const [state, setState] = useState<ViewState>({ kind: "idle" });
+
+  const MAX_ATTACHMENTS = 3;
+  const MAX_CHARS_PER_FILE = 15_000;
+
+  async function addAttachments(files: FileList | null) {
+    if (!files) return;
+    setAttachNote(null);
+    const next = [...attachments];
+    for (const file of Array.from(files)) {
+      if (next.length >= MAX_ATTACHMENTS) {
+        setAttachNote(`Up to ${MAX_ATTACHMENTS} attachments.`);
+        break;
+      }
+      const raw = await file.text();
+      const text = raw.slice(0, MAX_CHARS_PER_FILE).trim();
+      if (!text) {
+        setAttachNote(`"${file.name}" looks empty or isn't a text file — export as .txt and retry.`);
+        continue;
+      }
+      next.push({ name: file.name.slice(0, 120), text, truncated: raw.length > MAX_CHARS_PER_FILE });
+    }
+    setAttachments(next);
+  }
 
   const toggleRegion = (r: Region) =>
     setRegions((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
@@ -61,7 +86,7 @@ export function ContributeForm({
 
   /** Drive the two pipeline steps for an existing contribution row. */
   async function runPipeline(id: string) {
-    // Step 1 — read Google Doc attachments.
+    // Step 1 — gather sources (attached file text + fetchable Google links).
     setState({ kind: "pipeline", step: "extract" });
     const exRes = await fetch(`/api/contributions/${id}/extract`, { method: "POST" });
     const exData = await exRes.json().catch(() => null);
@@ -73,16 +98,17 @@ export function ContributeForm({
       });
       return;
     }
-    const sharingErrors: string[] = (exData?.errors ?? [])
-      .filter((e: { sharing?: boolean }) => e.sharing)
-      .map((e: { reason: string }) => e.reason);
-    if (sharingErrors.length > 0) {
+    // Blocking only when a restricted link left us with NO source material.
+    if (exData?.ok === false) {
+      const sharingErrors: string[] = (exData?.errors ?? [])
+        .filter((e: { sharing?: boolean }) => e.sharing)
+        .map((e: { reason: string }) => e.reason);
       setState({
         kind: "error",
         retryId: id,
         sharingErrors,
         message:
-          "One or more Google Docs aren't readable by the hub. Fix the sharing settings below, then retry — your submission is saved.",
+          "The linked Google file is restricted and nothing else was attached. Export it (File → Download → Plain text) and attach the file, then retry — your submission is saved.",
       });
       return;
     }
@@ -131,6 +157,7 @@ export function ContributeForm({
           regions,
           content: content.trim(),
           resourceLinks: links.map((l) => l.trim()).filter(Boolean),
+          attachments: attachments.map((a) => ({ name: a.name, text: a.text })),
         }),
       });
       const data = await res.json().catch(() => null);
@@ -219,6 +246,7 @@ export function ContributeForm({
             onClick={() => {
               setContent("");
               setLinks([""]);
+              setAttachments([]);
               setState({ kind: "idle" });
             }}
             className="underline underline-offset-2"
@@ -369,9 +397,60 @@ export function ContributeForm({
           </button>
         )}
         <p className="text-xs text-neutral-500">
-          Google Docs, Slides, and Sheets are read and synthesized into the section automatically —
-          set their sharing to <span className="font-medium">“Anyone with the link → Viewer”</span>{" "}
-          first. Other links are kept as references.
+          Publicly link-shared Google files are read automatically. Okta&rsquo;s Workspace restricts
+          link sharing to employees, so for internal Docs/Slides/Sheets{" "}
+          <span className="font-medium">attach an export below</span> instead. Other links are kept
+          as references.
+        </p>
+      </div>
+
+      {/* 06 — Attachments */}
+      <div className="space-y-3">
+        <FieldLabel step="06">
+          <label htmlFor="c-files">Attach source files</label>
+        </FieldLabel>
+        <input
+          id="c-files"
+          type="file"
+          accept=".txt,.md,.csv,text/plain,text/markdown,text/csv"
+          multiple
+          onChange={(e) => {
+            void addAttachments(e.target.files);
+            e.target.value = "";
+          }}
+          className="block w-full max-w-lg text-sm text-neutral-700 file:mr-3 file:rounded-md file:border-0 file:bg-okta-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-okta-700"
+        />
+        {attachments.length > 0 && (
+          <ul className="max-w-lg space-y-1.5">
+            {attachments.map((a, i) => (
+              <li
+                key={`${a.name}-${i}`}
+                className="flex items-center justify-between gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-sm"
+              >
+                <span className="truncate">
+                  📎 {a.name}
+                  <span className="ml-2 text-xs text-neutral-500">
+                    {a.text.length.toLocaleString()} chars{a.truncated ? " (truncated)" : ""}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  aria-label={`Remove attachment ${a.name}`}
+                  onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                  className="rounded-md border border-neutral-300 px-2 text-sm text-neutral-600 hover:bg-neutral-100"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {attachNote && <p className="text-xs text-amber-700">{attachNote}</p>}
+        <p className="text-xs text-neutral-500">
+          For an internal Google Slides deck or Doc: open it →{" "}
+          <span className="font-medium">File → Download → Plain text (.txt)</span> → attach the
+          file here. The content is synthesized into the section exactly like a fetched doc. Up to
+          3 files.
         </p>
       </div>
 

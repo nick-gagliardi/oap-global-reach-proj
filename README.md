@@ -53,13 +53,11 @@ Draft copy is marked `[PLACEHOLDER]` — find/replace as real content lands. Run
    `main` → production auto-deploy; branches → preview URLs.
 2. The platform injects `IDDB_URL`, `IDDB_APP_KEY`/`IDDB_SERVICE_KEY`/`IDDB_ANON_KEY`,
    `IDDB_LLM_BASE_URL`, `IDDB_LLM_KEY`. No manual LLM key.
-3. **Before contribution features work:** run [`db/schema.sql`](db/schema.sql), then
-   [`db/migrations/002-incorporation.sql`](db/migrations/002-incorporation.sql), against the
-   app's iddb Postgres via platform tooling (finish with `NOTIFY pgrst, 'reload schema';`).
+3. **Before contribution features work:** run [`db/schema.sql`](db/schema.sql) plus the
+   migrations in [`db/migrations/`](db/migrations) in order (002 → 003 → 004) against the
+   app's iddb Postgres via platform tooling (each ends with `NOTIFY pgrst, 'reload schema';`).
    Until then the app degrades gracefully.
-4. **Before the incorporation pipeline works:** set `HUB_GITHUB_TOKEN` (a PAT with repo
-   scope on the hub repo). Without it, submissions save but incorporation returns a clear 503.
-5. Post-deploy checks:
+4. Post-deploy checks:
    - `GET /api/health` — env booleans (incl. `github`) + `db: ok|unprovisioned|error`.
    - `GET /api/whoami` — inspect in an authenticated browser to confirm which header carries
      the employee identity, then update `src/lib/identity.ts` accordingly (Discovery A).
@@ -80,10 +78,17 @@ Submissions are synthesized and published **live** — no review queue, no PR, n
 On submit, the browser drives a two-step pipeline (each request stays under the
 platform's ~30s cap):
 
-1. `POST /api/contributions/[id]/extract` — fetches text exports of linked **Google Docs,
-   Slides, and Sheets**. Files must be shared **"Anyone with the link → Viewer"**;
-   org-restricted files get a per-file error telling the submitter how to fix sharing.
-   Non-Google links are kept as reference-only sources.
+1. `POST /api/contributions/[id]/extract` — gathers source material:
+   **submitter-attached file text first** (the contribute form accepts up to 3 `.txt`/`.md`/`.csv`
+   files, read client-side — the path for org-restricted Google files), then text exports of
+   linked **Google Docs, Slides, and Sheets** filling the remaining budget. Link fetching only
+   works for *genuinely public* link-shared files: Google Workspace policy (Okta's included)
+   typically scopes "Anyone with the link" to org members, which an external server can't be —
+   those submitters export (**File → Download → Plain text**) and attach instead. A restricted
+   link is fatal only when there's no other source material. Non-Google links are kept as
+   reference-only sources. (Direct server reads of org-restricted files would require a Google
+   service account + domain-wide delegation — a Workspace-admin project, deliberately out of
+   scope.)
 2. `POST /api/contributions/[id]/incorporate` — the LLM reviews the contribution + doc
    extracts and synthesizes ONE house-style `## ` chapter (grounding rules: attached
    extracts are primary source material; never invent; reject only spam/garbage). The
@@ -101,7 +106,7 @@ and offer **Unpublish** (instant removal, restorable); *Declined* rows offer **R
 (restores the stored chapter with no re-synthesis) and **Reopen & re-run**; stuck/failed
 rows offer **Run incorporation** and **Dismiss**.
 
-Requires migration `db/migrations/003-live-addenda.sql`. `HUB_GITHUB_TOKEN` is no longer
+Requires migrations `db/migrations/003-live-addenda.sql` and `db/migrations/004-attachments.sql`. `HUB_GITHUB_TOKEN` is no longer
 required (the git-PR publish path is retired; `src/lib/github.ts` remains for a future
 "export addenda to repo" utility).
 

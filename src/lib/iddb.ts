@@ -53,6 +53,8 @@ export interface Contribution {
   replace_title?: string | null;
   /** 'append' | 'replace'. Migration 003. */
   mode?: string | null;
+  /** Submitter-attached file text (org-restricted Google files). Migration 004. */
+  attachments?: Array<{ name: string; text: string }>;
   created_at: string;
   updated_at: string;
 }
