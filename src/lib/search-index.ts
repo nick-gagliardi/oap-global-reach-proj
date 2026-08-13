@@ -1,5 +1,6 @@
 import { cache } from "react";
-import { getAllStrategies, getObjections, getRegions, getVerticals } from "./content";
+import { getObjections, getRegions, getVerticals } from "./content";
+import { getAllStrategiesLive } from "./content-live";
 import type { Region } from "./regions";
 
 export interface SearchEntry {
@@ -25,10 +26,12 @@ function toPlainText(markdown: string): string {
     .toLowerCase();
 }
 
-export const buildSearchIndex = cache((): SearchEntry[] => {
+export const buildSearchIndex = cache(async (): Promise<SearchEntry[]> => {
   const entries: SearchEntry[] = [];
 
-  for (const s of getAllStrategies()) {
+  // Live strategies: includes DB-published addendum chapters, so search finds
+  // freshly incorporated content immediately.
+  for (const s of await getAllStrategiesLive()) {
     entries.push({
       href: `/strategies/${s.slug}`,
       title: s.title,

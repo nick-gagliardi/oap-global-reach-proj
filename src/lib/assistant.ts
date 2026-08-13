@@ -1,12 +1,6 @@
 import { cache } from "react";
-import {
-  getAllStrategies,
-  getGuides,
-  getObjections,
-  getRegions,
-  getSectionStatuses,
-  getVerticals,
-} from "./content";
+import { getGuides, getObjections, getRegions, getSectionStatuses, getVerticals } from "./content";
+import { getAllStrategiesLive } from "./content-live";
 
 function doc(title: string, body: string): string {
   return `<doc title="${title}">\n${body.trim()}\n</doc>`;
@@ -18,14 +12,15 @@ function doc(title: string, body: string): string {
  * missing-content behavior are the contract: the assistant never invents, and
  * every gap becomes a pointer to the owning section's contribute link.
  */
-export const buildAssistantSystemPrompt = cache((): string => {
+export const buildAssistantSystemPrompt = cache(async (): Promise<string> => {
   const docs: string[] = [];
 
   for (const g of getGuides()) docs.push(doc(`Field guide: ${g.title}`, g.body));
   for (const r of getRegions()) docs.push(doc(`Region guide: ${r.title}`, r.body));
   for (const v of getVerticals()) docs.push(doc(`Vertical guide: ${v.title}`, v.body));
   for (const o of getObjections()) docs.push(doc(`Objection guide: ${o.title}`, o.body));
-  for (const s of getAllStrategies()) {
+  // Live strategies: DB-published addendum chapters ground the assistant too.
+  for (const s of await getAllStrategiesLive()) {
     if (s.body.trim()) docs.push(doc(`Workstream section: ${s.title}`, s.body));
   }
 

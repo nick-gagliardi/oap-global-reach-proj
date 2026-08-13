@@ -47,6 +47,12 @@ export interface Contribution {
   pr_url?: string | null;
   /** Chapter the pipeline added/updated. Migration 002. */
   chapter_title?: string | null;
+  /** Synthesized chapter body (live-published at render time). Migration 003. */
+  chapter_markdown?: string | null;
+  /** For mode 'replace': the chapter title being replaced. Migration 003. */
+  replace_title?: string | null;
+  /** 'append' | 'replace'. Migration 003. */
+  mode?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -105,10 +111,15 @@ export async function getContribution(id: string): Promise<Contribution | null> 
   return rows?.[0] ?? null;
 }
 
-/** Patch arbitrary pipeline fields (status, error, pr_url, chapter_title). */
+/** Patch arbitrary pipeline fields (status, error, chapter data). */
 export async function patchContribution(
   id: string,
-  fields: Partial<Pick<Contribution, "status" | "error" | "pr_url" | "chapter_title">>,
+  fields: Partial<
+    Pick<
+      Contribution,
+      "status" | "error" | "pr_url" | "chapter_title" | "chapter_markdown" | "replace_title" | "mode"
+    >
+  >,
 ): Promise<Contribution | null> {
   const res = await iddbFetch(`/rest/v1/contributions?id=eq.${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -117,6 +128,32 @@ export async function patchContribution(
   const rows = (await readOrThrow(res)) as Contribution[];
   // PostgREST returns 200 + [] when no row matched — treat as not found.
   return rows?.[0] ?? null;
+}
+
+/**
+ * All live (incorporated) addendum chapters, grouped by strategy slug in
+ * created_at order. ONE query per request; returns an empty map on ANY
+ * failure — a DB hiccup must degrade pages to file-only content, never break
+ * them.
+ */
+export async function listIncorporatedBySlug(): Promise<Map<string, Contribution[]>> {
+  const map = new Map<string, Contribution[]>();
+  try {
+    const res = await iddbFetch(
+      "/rest/v1/contributions?status=eq.incorporated&chapter_markdown=not.is.null&select=*&order=created_at.asc",
+    );
+    if (!res.ok) return map;
+    const rows = (await res.json()) as Contribution[];
+    for (const row of rows) {
+      if (!row.chapter_title || !row.chapter_markdown) continue;
+      const list = map.get(row.strategy_slug) ?? [];
+      list.push(row);
+      map.set(row.strategy_slug, list);
+    }
+  } catch {
+    // Unprovisioned / network / anything: file-only content.
+  }
+  return map;
 }
 
 export async function countPending(): Promise<number> {

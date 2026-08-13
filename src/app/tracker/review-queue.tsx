@@ -25,6 +25,7 @@ interface Contribution {
   error?: string | null;
   pr_url?: string | null;
   chapter_title?: string | null;
+  chapter_markdown?: string | null;
   created_at: string;
 }
 
@@ -111,7 +112,7 @@ export function ReviewQueue() {
       });
       const incData = await incRes.json().catch(() => null);
       if (incRes.ok && incData?.ok) {
-        setNotice(`Incorporated — PR opened for "${incData.chapterTitle ?? c.strategy_slug}".`);
+        setNotice(`Published — "${incData.chapterTitle ?? c.strategy_slug}" is live on the section.`);
         setState((prev) =>
           prev.kind === "ready"
             ? { kind: "ready", items: prev.items.filter((i) => i.id !== c.id) }
@@ -134,8 +135,12 @@ export function ReviewQueue() {
     }
   }
 
-  /** Manual dismiss for junk (kept from the old queue as an admin override). */
-  async function dismiss(id: string) {
+  /** Flip a contribution's status (dismiss / unpublish / republish). */
+  async function setStatusTo(
+    id: string,
+    status: "declined" | "incorporated",
+    noun: string,
+  ) {
     if (state.kind !== "ready") return;
     const prevItems = state.items;
     setState({ kind: "ready", items: prevItems.filter((c) => c.id !== id) });
@@ -143,7 +148,7 @@ export function ReviewQueue() {
       const res = await fetch(`/api/contributions/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "declined" }),
+        body: JSON.stringify({ status }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -151,12 +156,13 @@ export function ReviewQueue() {
         setState({ kind: "ready", items: prevItems });
         return;
       }
-      setNotice("Dismissed.");
+      setNotice(`${noun}.`);
     } catch {
       setNotice("Network error — restored the item.");
       setState({ kind: "ready", items: prevItems });
     }
   }
+  const dismiss = (id: string) => setStatusTo(id, "declined", "Dismissed");
 
   const tabCls = (t: Tab) =>
     `rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-okta-500 ${
@@ -280,16 +286,37 @@ export function ReviewQueue() {
                 )}
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {c.status === "incorporated" && c.pr_url ? (
-                    <a
-                      href={c.pr_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800"
-                    >
-                      View publish PR →
-                    </a>
-                  ) : null}
+                  {c.status === "incorporated" && (
+                    <>
+                      <a
+                        href={`/strategies/${c.strategy_slug}`}
+                        className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800"
+                      >
+                        View section →
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setStatusTo(c.id, "declined", "Unpublished — removed from the strategy page")
+                        }
+                        className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+                        title="Remove this chapter from the strategy page (restorable from the Declined tab)"
+                      >
+                        Unpublish
+                      </button>
+                      {c.pr_url ? (
+                        <a
+                          href={c.pr_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+                          title="Legacy: this contribution was published via a git PR"
+                        >
+                          View PR →
+                        </a>
+                      ) : null}
+                    </>
+                  )}
                   {(c.status === "pending" || c.status === "failed") && (
                     <>
                       <button
@@ -310,15 +337,27 @@ export function ReviewQueue() {
                     </>
                   )}
                   {c.status === "declined" && (
-                    <button
-                      type="button"
-                      disabled={retryingId === c.id}
-                      onClick={() => retry(c)}
-                      className="rounded-md bg-okta-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-okta-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
-                      title="Re-run the incorporation pipeline for this submission"
-                    >
-                      {retryingId === c.id ? "Incorporating…" : "Reopen & re-run"}
-                    </button>
+                    <>
+                      {c.chapter_markdown ? (
+                        <button
+                          type="button"
+                          onClick={() => setStatusTo(c.id, "incorporated", "Republished — live again")}
+                          className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800"
+                          title="Restore the previously synthesized chapter to the strategy page (no re-synthesis)"
+                        >
+                          Republish
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={retryingId === c.id}
+                        onClick={() => retry(c)}
+                        className="rounded-md bg-okta-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-okta-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
+                        title="Re-run the incorporation pipeline for this submission"
+                      >
+                        {retryingId === c.id ? "Incorporating…" : "Reopen & re-run"}
+                      </button>
+                    </>
                   )}
                 </div>
               </li>

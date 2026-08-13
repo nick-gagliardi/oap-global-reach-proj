@@ -14,7 +14,7 @@ type ViewState =
   | { kind: "idle" }
   | { kind: "submitting" }
   | { kind: "pipeline"; step: PipelineStep }
-  | { kind: "done"; prUrl?: string; chapterTitle?: string }
+  | { kind: "done"; href?: string; chapterTitle?: string }
   | { kind: "rejected"; reason: string }
   | {
       kind: "error";
@@ -27,7 +27,7 @@ type ViewState =
 
 const STEP_LABELS: Array<{ key: PipelineStep; label: string }> = [
   { key: "extract", label: "Reading attachments" },
-  { key: "synthesize", label: "Synthesizing & formatting" },
+  { key: "synthesize", label: "Synthesizing & publishing" },
 ];
 
 export function ContributeForm({
@@ -96,7 +96,7 @@ export function ContributeForm({
     });
     const incData = await incRes.json().catch(() => null);
     if (incRes.ok && incData?.ok) {
-      setState({ kind: "done", prUrl: incData.prUrl, chapterTitle: incData.chapterTitle });
+      setState({ kind: "done", href: incData.href, chapterTitle: incData.chapterTitle });
     } else if (incRes.status === 422 && incData?.rejected) {
       setState({
         kind: "rejected",
@@ -195,7 +195,7 @@ export function ContributeForm({
         role="status"
         className="rounded-xl border border-emerald-300 bg-emerald-50 p-6 text-emerald-900"
       >
-        <p className="text-lg font-semibold">Contribution incorporated ✓</p>
+        <p className="text-lg font-semibold">Published ✓</p>
         <p className="mt-1.5 text-sm leading-relaxed">
           Your contribution was formatted to the hub standard
           {state.chapterTitle ? (
@@ -203,23 +203,17 @@ export function ContributeForm({
               {" "}as <span className="font-medium">“{state.chapterTitle}”</span>
             </>
           ) : null}{" "}
-          and is queued for publish. It will appear on the strategy page a few minutes after the
-          team approves it — no further action needed from you.
+          and is <span className="font-medium">live on the strategy page now</span>.
         </p>
         <div className="mt-4 flex flex-wrap gap-4 text-sm font-medium">
+          {state.href ? (
+            <Link href={state.href} className="underline underline-offset-2">
+              See it live →
+            </Link>
+          ) : null}
           <Link href="/tracker" className="underline underline-offset-2">
             View the tracker →
           </Link>
-          {state.prUrl ? (
-            <a
-              href={state.prUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="underline underline-offset-2"
-            >
-              Follow the publish status →
-            </a>
-          ) : null}
           <button
             type="button"
             onClick={() => {

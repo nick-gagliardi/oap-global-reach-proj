@@ -121,6 +121,21 @@ export async function synthesizeChapter(
   return plan;
 }
 
+/**
+ * Storage-boundary validation for a synthesized chapter (used by the live
+ * publish path, where there is no file write to validate): the body must not
+ * start new chapters, and its region callouts must parse with the exact
+ * parser the renderer uses. Throws on violation.
+ */
+export function validateChapter(args: { slug: string; chapterTitle: string; markdown: string }): void {
+  if (!args.chapterTitle.trim()) throw new Error("Chapter title is empty.");
+  if (!args.markdown.trim()) throw new Error("Chapter body is empty.");
+  if (/^##\s/m.test(args.markdown)) {
+    throw new Error("Chapter body contained a '## ' heading — one chapter only.");
+  }
+  splitRegionSegments(args.markdown, `addendum for content/strategies/${args.slug}.md`);
+}
+
 /** Chapter titles as the spec-sheet renderer sees them (## boundaries). */
 export function listChapterTitles(body: string): string[] {
   const parts = body.split(/^##\s+(.+)$/m);
