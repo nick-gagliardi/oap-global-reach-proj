@@ -1,16 +1,10 @@
-name: Deploy to iddb
-
+# Auto-deploy is handled by the iddb webhook function.
+# This file is kept as a placeholder — the workflow is disabled.
+name: Deploy to iddb (disabled)
 on:
-  push:
-    branches: [main]
-
+  workflow_dispatch:
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger deploy
-        run: |
-          curl -sf -X POST \
-            "https://app.platform.atko.ai/v1/tenants/oap-global-reach/apps/oap-global-reach-proj/deploy" \
-            -H "Authorization: Bearer ${{ secrets.IDDB_DEPLOY_KEY }}" \
-            -H "Content-Type: application/json"
+      - run: echo "Deploy triggered via iddb webhook function instead"
