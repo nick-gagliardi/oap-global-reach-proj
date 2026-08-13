@@ -2,14 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getAllStrategies, getStrategy } from "@/lib/content";
-import { isRegion, REGION_LABELS, STRATEGY_SLUGS } from "@/lib/regions";
+import { getStrategyLive } from "@/lib/content-live";
+import { isRegion, REGION_LABELS } from "@/lib/regions";
 import { StatusDot } from "@/components/status-badge";
 import { RegionFilter } from "@/components/region-filter";
 import { SpecSheet } from "@/components/spec-sheet";
 
-export function generateStaticParams() {
-  return STRATEGY_SLUGS.map((slug) => ({ slug }));
-}
+// Rendered per request: DB-published addendum chapters are merged into the
+// page live, so a contribution shows up on the very next view.
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -25,7 +26,7 @@ export default async function StrategyPage({
   searchParams: Promise<{ region?: string }>;
 }) {
   const [{ slug }, { region: rawRegion }] = await Promise.all([params, searchParams]);
-  const doc = getStrategy(slug);
+  const doc = await getStrategyLive(slug);
   if (!doc) notFound();
   const activeRegion = isRegion(rawRegion) ? rawRegion : null;
 

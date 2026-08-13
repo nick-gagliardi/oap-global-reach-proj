@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getSectionStatuses } from "@/lib/content";
+import { getSectionStatusesLive } from "@/lib/content-live";
 import { StatusDot } from "@/components/status-badge";
 import { ReviewQueue } from "./review-queue";
 
 export const metadata: Metadata = { title: "Tracker" };
 export const dynamic = "force-dynamic";
 
-export default function TrackerPage() {
-  const sections = getSectionStatuses();
+export default async function TrackerPage() {
+  const sections = await getSectionStatusesLive();
   const counts = sections.reduce(
-    (acc, s) => ({ ...acc, [s.status]: (acc[s.status] ?? 0) + 1 }),
+    (acc, s) => ({ ...acc, [s.effectiveStatus]: (acc[s.effectiveStatus] ?? 0) + 1 }),
     {} as Record<string, number>,
   );
 
@@ -63,9 +63,14 @@ export default function TrackerPage() {
                   </Link>
                   <p className="mt-0.5 text-xs text-neutral-500">
                     {s.owner} · updated {s.last_updated}
+                    {s.addendaCount > 0 && (
+                      <span className="ml-1.5 font-medium text-okta-600">
+                        · +{s.addendaCount} live addition{s.addendaCount === 1 ? "" : "s"}
+                      </span>
+                    )}
                   </p>
                 </div>
-                <StatusDot status={s.status} />
+                <StatusDot status={s.effectiveStatus} />
               </div>
             </li>
           ))}
@@ -75,10 +80,11 @@ export default function TrackerPage() {
       <section aria-labelledby="queue-heading" className="rise rise-d3 space-y-5">
         <div className="space-y-1">
           <h2 id="queue-heading" className="text-xl font-semibold tracking-tight text-neutral-900">
-            Contribution review queue
+            Contribution activity
           </h2>
           <p className="text-sm text-neutral-600">
-            Teammate submissions land here before being formatted into their section.
+            Submissions are synthesized and published to their section automatically — this is the
+            record, with unpublish/republish controls.
           </p>
         </div>
         <ReviewQueue />

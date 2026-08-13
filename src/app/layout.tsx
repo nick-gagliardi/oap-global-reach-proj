@@ -19,7 +19,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const index = buildSearchIndex();
+  const index = await buildSearchIndex();
 
   // Pending-contribution badge. DB may be unreachable or unprovisioned —
   // that must never break the shell.

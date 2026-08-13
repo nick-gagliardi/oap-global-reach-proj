@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   try {
     const reply = await callLLMChat({
       messages: input.messages,
-      system: buildAssistantSystemPrompt(),
+      system: await buildAssistantSystemPrompt(),
       maxTokens: 1500,
       timeoutMs,
     });

@@ -74,27 +74,36 @@ Draft copy is marked `[PLACEHOLDER]` — find/replace as real content lands. Run
 | `HUB_GITHUB_REPO` | Content repo for PRs (default `nick-gagliardi/oap-global-reach-proj` — the deployed repo) |
 | `HUB_GITHUB_BASE_BRANCH` | PR base branch (default `main`) |
 
-## Contribution incorporation pipeline
+## Contribution incorporation pipeline (instant publish)
 
-Submissions no longer wait in a human review queue. On submit, the browser drives a
-two-step pipeline (each request stays under the platform's ~30s cap):
+Submissions are synthesized and published **live** — no review queue, no PR, no redeploy.
+On submit, the browser drives a two-step pipeline (each request stays under the
+platform's ~30s cap):
 
-1. `POST /api/contributions/[id]/extract` — fetches text exports of linked **Google Docs, Slides, and Sheets**.
-   Docs must be shared **"Anyone with the link → Viewer"**; org-restricted docs get a
-   per-doc error telling the submitter how to fix sharing. Non-Google links are kept as
-   reference-only sources.
+1. `POST /api/contributions/[id]/extract` — fetches text exports of linked **Google Docs,
+   Slides, and Sheets**. Files must be shared **"Anyone with the link → Viewer"**;
+   org-restricted files get a per-file error telling the submitter how to fix sharing.
+   Non-Google links are kept as reference-only sources.
 2. `POST /api/contributions/[id]/incorporate` — the LLM reviews the contribution + doc
-   extracts and synthesizes ONE house-style `## ` chapter (grounding rules: never invent;
-   reject spam/thin material outright). The chapter is spliced into
-   `content/strategies/<slug>.md` on `## ` boundaries (existing chapters are never
-   regenerated), frontmatter is bumped (`last_updated`, `placeholder → in-progress`), the
-   result is validated with the same schema/parsers the build uses, and a **publish PR** is
-   opened on the content repo. **Merging the PR is what publishes** (auto-deploy) — the
-   submitter is told content appears a few minutes after approval.
+   extracts and synthesizes ONE house-style `## ` chapter (grounding rules: attached
+   extracts are primary source material; never invent; reject only spam/garbage). The
+   chapter is validated with the renderer's own parsers and **stored in the contributions
+   row** (`status: incorporated`).
 
-Failures set `status: failed` with the error recorded; the tracker's **Needs attention**
-tab can re-run the pipeline or dismiss junk. A model-rejected submission lands in
-**Declined** with the reason.
+**Rendering:** the live content layer (`src/lib/content-live.ts`) merges stored chapters
+into the file content per request — strategy pages (`dynamic = "force-dynamic"`), the
+search index, the assistant's grounding, and the tracker all see one coherent body.
+File content in `content/` remains the git-versioned base; DB addenda layer on top.
+Any DB failure degrades pages to file-only content.
+
+**Controls (tracker → Contribution activity):** *Incorporated* rows link the live section
+and offer **Unpublish** (instant removal, restorable); *Declined* rows offer **Republish**
+(restores the stored chapter with no re-synthesis) and **Reopen & re-run**; stuck/failed
+rows offer **Run incorporation** and **Dismiss**.
+
+Requires migration `db/migrations/003-live-addenda.sql`. `HUB_GITHUB_TOKEN` is no longer
+required (the git-PR publish path is retired; `src/lib/github.ts` remains for a future
+"export addenda to repo" utility).
 
 ## Architecture notes
 
