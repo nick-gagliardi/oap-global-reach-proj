@@ -121,6 +121,77 @@ export async function synthesizeChapter(
   return plan;
 }
 
+// ---------------------------------------------------------------------------
+// Chapter revision — contributor updates to an already-published chapter.
+// ---------------------------------------------------------------------------
+
+const REVISE_SYSTEM = `You are the content editor for the OAP Global Reach Resource Hub. A contributor is UPDATING a chapter they previously published on a strategy page — adding new information, corrections, or fresh material.
+
+Return ONLY JSON:
+
+{
+  "chapterTitle": "the chapter heading (keep the existing title unless the update clearly changes the topic)",
+  "markdown": "the COMPLETE revised chapter body — no ## heading line",
+  "reject": "only for spam/garbage updates: one sentence why (omit otherwise)"
+}
+
+Revision rules:
+- Integrate the new material into the existing chapter. When the update contradicts or supersedes an existing fact, THE NEW INFORMATION WINS — replace the stale fact, don't keep both.
+- Preserve all still-valid existing content. This is an edit, not a rewrite: keep structure, tone, and phrasing where the update doesn't touch them.
+- House style: "### " sub-headings, "**Bold label:** " run-in fields, "-" bullets, "1." steps, "> " pull-quotes. NEVER "## " inside the body.
+- Region callouts (:::region <slug> … :::) only for content specific to a subset of the contribution's tagged regions.
+- Grounding: use ONLY the existing chapter, the original contribution, the new update text, and any attached document extracts. NEVER invent facts. If sources conflict, the newest wins; if something is uncertain, omit it.
+- "reject" ONLY for spam/test garbage or content with no relation to the chapter. Never for brevity.`;
+
+export async function reviseChapter(args: {
+  strategyTitle: string;
+  strategySlug: string;
+  chapterTitle: string;
+  chapterMarkdown: string;
+  originalContribution: string;
+  regions: string[];
+  submittedBy: string;
+  update: string;
+  extracts: DocExtract[];
+}): Promise<{ chapterTitle: string; markdown: string } | { rejected: string }> {
+  const extractBlocks = args.extracts
+    .map((e, i) => `<doc index="${i + 1}" url="${e.url}">\n${e.text}\n</doc>`)
+    .join("\n\n");
+  const prompt = [
+    `Strategy section: "${args.strategyTitle}" (${args.strategySlug})`,
+    `Contribution regions: ${args.regions.join(", ")}`,
+    `Contributor: ${args.submittedBy}`,
+    "",
+    `## Existing published chapter: "${args.chapterTitle}"`,
+    args.chapterMarkdown,
+    "",
+    "## Original contribution (context)",
+    args.originalContribution,
+    "",
+    "## New update from the contributor",
+    args.update,
+    "",
+    args.extracts.length
+      ? "## Newly attached document extracts\n" + extractBlocks
+      : "## Newly attached document extracts\n(none)",
+    "",
+    "Revise the chapter now. Return ONLY the JSON.",
+  ].join("\n");
+
+  const text = await callLLMServer({
+    system: REVISE_SYSTEM,
+    prompt,
+    maxTokens: 2048,
+    timeoutMs: 20_000,
+  });
+  const parsed = parseJsonFromLLM<{ chapterTitle?: string; markdown?: string; reject?: string }>(text);
+  if (parsed.reject) return { rejected: parsed.reject };
+  if (!parsed.chapterTitle?.trim() || !parsed.markdown?.trim()) {
+    throw new Error("Revision returned an empty chapter title or body.");
+  }
+  return { chapterTitle: parsed.chapterTitle.trim(), markdown: parsed.markdown.trim() };
+}
+
 /**
  * Storage-boundary validation for a synthesized chapter (used by the live
  * publish path, where there is no file write to validate): the body must not

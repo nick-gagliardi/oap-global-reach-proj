@@ -28,7 +28,15 @@ function attributionFor(row: Contribution): string {
     month: "long",
     year: "numeric",
   });
-  return `Contributed by ${row.submitted_by}, ${when}`;
+  let attribution = `Contributed by ${row.submitted_by}, ${when}`;
+  if (row.content_updated_at) {
+    attribution += ` · updated ${new Date(row.content_updated_at).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })}`;
+  }
+  return attribution;
 }
 
 const ALL_REGIONS = ["latam", "apj", "emea", "pubsec"];
@@ -44,6 +52,11 @@ const ALL_REGIONS = ["latam", "apj", "emea", "pubsec"];
 function wrapForRegions(markdown: string, regions: string[]): string {
   const scoped = regions.filter((r) => ALL_REGIONS.includes(r));
   if (scoped.length === 0 || scoped.length === ALL_REGIONS.length) return markdown;
+  // The synthesizer may already scope parts of the chapter itself — wrapping
+  // again would NEST :::region blocks, which the parser rejects (and the
+  // whole addendum would vanish via the degrade path). Trust the model's own
+  // scoping in that case.
+  if (markdown.includes(":::region")) return markdown;
   return scoped.map((r) => `:::region ${r}\n${markdown.trim()}\n:::`).join("\n\n");
 }
 

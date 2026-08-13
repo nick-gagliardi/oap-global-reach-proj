@@ -79,6 +79,54 @@ export function ReviewQueue() {
   const [state, setState] = useState<ViewState>({ kind: "loading" });
   const [notice, setNotice] = useState<string | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  // "Add update" panel state (one open panel at a time).
+  const [updateFor, setUpdateFor] = useState<string | null>(null);
+  const [updateText, setUpdateText] = useState("");
+  const [updateFiles, setUpdateFiles] = useState<Array<{ name: string; text: string }>>([]);
+  const [updateBusy, setUpdateBusy] = useState(false);
+
+  async function addUpdateFiles(files: FileList | null) {
+    if (!files) return;
+    const next = [...updateFiles];
+    for (const file of Array.from(files)) {
+      if (next.length >= 3) break;
+      const raw = await file.text();
+      const text = raw.slice(0, 15_000).trim();
+      if (text) next.push({ name: file.name.slice(0, 120), text });
+    }
+    setUpdateFiles(next);
+  }
+
+  async function submitUpdate(c: Contribution) {
+    if (updateText.trim().length < 10) {
+      setNotice("Describe the update (at least 10 characters).");
+      return;
+    }
+    setUpdateBusy(true);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/contributions/${c.id}/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ update: updateText.trim(), attachments: updateFiles }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) {
+        setNotice(`Chapter updated — "${data.chapterTitle}" is live with the new material.`);
+        setUpdateFor(null);
+        setUpdateText("");
+        setUpdateFiles([]);
+      } else if (res.status === 422 && data?.rejected) {
+        setNotice(`Update not applied: ${data.reason ?? "judged not usable."}`);
+      } else {
+        setNotice(data?.error || `Update failed (${res.status}).`);
+      }
+    } catch {
+      setNotice("Network error during update.");
+    } finally {
+      setUpdateBusy(false);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -304,6 +352,20 @@ export function ReviewQueue() {
                       >
                         View section →
                       </a>
+                      {c.chapter_markdown ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUpdateFor(updateFor === c.id ? null : c.id);
+                            setUpdateText("");
+                            setUpdateFiles([]);
+                          }}
+                          className="rounded-md bg-okta-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-okta-700"
+                          title="Add new information — the chapter is revised in place and stays live"
+                        >
+                          {updateFor === c.id ? "Cancel update" : "Add update"}
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() =>
@@ -370,6 +432,56 @@ export function ReviewQueue() {
                     </>
                   )}
                 </div>
+
+                {updateFor === c.id && (
+                  <div className="mt-3 space-y-2.5 rounded-lg border border-okta-200 bg-okta-50/40 p-3">
+                    <p className="text-xs font-medium text-neutral-700">
+                      Add new information — the chapter is revised in place (new facts supersede
+                      stale ones) and stays live.
+                    </p>
+                    <textarea
+                      value={updateText}
+                      onChange={(e) => setUpdateText(e.target.value)}
+                      rows={4}
+                      maxLength={5000}
+                      placeholder="What's new? Paste updates, corrections, fresh numbers…"
+                      className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-okta-500"
+                    />
+                    <input
+                      type="file"
+                      accept=".txt,.md,.csv,text/plain,text/markdown,text/csv"
+                      multiple
+                      onChange={(e) => {
+                        void addUpdateFiles(e.target.files);
+                        e.target.value = "";
+                      }}
+                      className="block w-full text-sm text-neutral-700 file:mr-3 file:rounded-md file:border-0 file:bg-neutral-200 file:px-3 file:py-1 file:text-sm file:font-medium file:text-neutral-800 hover:file:bg-neutral-300"
+                    />
+                    {updateFiles.length > 0 && (
+                      <p className="text-xs text-neutral-600">
+                        📎 {updateFiles.map((f) => f.name).join(", ")}
+                        <button
+                          type="button"
+                          onClick={() => setUpdateFiles([])}
+                          className="ml-2 underline underline-offset-2"
+                        >
+                          clear
+                        </button>
+                      </p>
+                    )}
+                    <p className="text-xs text-neutral-500">
+                      For internal Google files: File → Download → Plain text (.txt), attach here.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={updateBusy || updateText.trim().length < 10}
+                      onClick={() => submitUpdate(c)}
+                      className="rounded-md bg-okta-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-okta-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
+                    >
+                      {updateBusy ? "Revising chapter…" : "Update chapter"}
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

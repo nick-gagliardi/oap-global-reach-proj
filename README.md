@@ -54,7 +54,7 @@ Draft copy is marked `[PLACEHOLDER]` — find/replace as real content lands. Run
 2. The platform injects `IDDB_URL`, `IDDB_APP_KEY`/`IDDB_SERVICE_KEY`/`IDDB_ANON_KEY`,
    `IDDB_LLM_BASE_URL`, `IDDB_LLM_KEY`. No manual LLM key.
 3. **Before contribution features work:** run [`db/schema.sql`](db/schema.sql) plus the
-   migrations in [`db/migrations/`](db/migrations) in order (002 → 003 → 004) against the
+   migrations in [`db/migrations/`](db/migrations) in order (002 → 003 → 004 → 005) against the
    app's iddb Postgres via platform tooling (each ends with `NOTIFY pgrst, 'reload schema';`).
    Until then the app degrades gracefully.
 4. Post-deploy checks:
@@ -106,7 +106,7 @@ and offer **Unpublish** (instant removal, restorable); *Declined* rows offer **R
 (restores the stored chapter with no re-synthesis) and **Reopen & re-run**; stuck/failed
 rows offer **Run incorporation** and **Dismiss**.
 
-Requires migrations `db/migrations/003-live-addenda.sql` and `db/migrations/004-attachments.sql`. `HUB_GITHUB_TOKEN` is no longer
+Requires migrations 003–005 in `db/migrations/`. Contributors can also **update** a live chapter from the tracker ("Add update"): the LLM revises the stored chapter with the new material (new facts supersede stale ones), re-validates, and patches it in place — the attribution line gains "· updated <date>". `HUB_GITHUB_TOKEN` is no longer
 required (the git-PR publish path is retired; `src/lib/github.ts` remains for a future
 "export addenda to repo" utility).
 

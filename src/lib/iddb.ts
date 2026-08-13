@@ -55,6 +55,8 @@ export interface Contribution {
   mode?: string | null;
   /** Submitter-attached file text (org-restricted Google files). Migration 004. */
   attachments?: Array<{ name: string; text: string }>;
+  /** When the chapter content was last revised by a contributor update. Migration 005. */
+  content_updated_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -119,7 +121,16 @@ export async function patchContribution(
   fields: Partial<
     Pick<
       Contribution,
-      "status" | "error" | "pr_url" | "chapter_title" | "chapter_markdown" | "replace_title" | "mode"
+      | "status"
+      | "error"
+      | "pr_url"
+      | "chapter_title"
+      | "chapter_markdown"
+      | "replace_title"
+      | "mode"
+      | "content"
+      | "attachments"
+      | "content_updated_at"
     >
   >,
 ): Promise<Contribution | null> {
