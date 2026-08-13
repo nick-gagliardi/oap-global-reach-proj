@@ -26,6 +26,7 @@ interface Contribution {
   pr_url?: string | null;
   chapter_title?: string | null;
   chapter_markdown?: string | null;
+  attachments?: Array<{ name: string; text: string }>;
   created_at: string;
 }
 
@@ -100,9 +101,12 @@ export function ReviewQueue() {
         setNotice(exData?.error || `Could not read attachments (${exRes.status}).`);
         return;
       }
-      const sharing = (exData?.errors ?? []).filter((e: { sharing?: boolean }) => e.sharing);
-      if (sharing.length > 0) {
-        setNotice(sharing.map((e: { reason: string }) => e.reason).join(" "));
+      if (exData?.ok === false) {
+        const sharing = (exData?.errors ?? []).filter((e: { sharing?: boolean }) => e.sharing);
+        setNotice(
+          sharing.map((e: { reason: string }) => e.reason).join(" ") ||
+            "The linked file is restricted and no attachment was provided.",
+        );
         return;
       }
       const incRes = await fetch(`/api/contributions/${c.id}/incorporate`, {
@@ -268,6 +272,12 @@ export function ReviewQueue() {
                 ) : null}
 
                 <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-800">{c.content}</p>
+                {(c.attachments?.length ?? 0) > 0 && (
+                  <p className="mt-1 text-xs text-neutral-500">
+                    📎 {c.attachments!.length} attachment{c.attachments!.length === 1 ? "" : "s"}:{" "}
+                    {c.attachments!.map((a) => a.name).join(", ")}
+                  </p>
+                )}
                 {c.resource_links.length > 0 && (
                   <ul className="mt-2 space-y-1 text-sm">
                     {c.resource_links.map((l) => (

@@ -21,6 +21,15 @@ const CreateSchema = z.object({
     .array(z.string().trim().url().startsWith("http"))
     .max(10)
     .default([]),
+  // Submitter-attached file text (exported from org-restricted Google files
+  // the server can't fetch). Caps mirror the Google-extract budget.
+  attachments: z
+    .array(z.object({ name: z.string().trim().min(1).max(120), text: z.string().min(1).max(15_000) }))
+    .max(3)
+    .default([])
+    .refine((a) => a.reduce((n, f) => n + f.text.length, 0) <= 30_000, {
+      message: "attachments exceed the 30k character budget",
+    }),
 });
 
 const STATUSES: ContributionStatus[] = ["pending", "incorporated", "declined", "failed"];
@@ -48,6 +57,8 @@ export async function POST(req: Request) {
       regions: body.regions,
       content: body.content,
       resource_links: body.resourceLinks,
+      // Omit entirely when empty so pre-migration-004 stores still accept rows.
+      ...(body.attachments.length > 0 ? { attachments: body.attachments } : {}),
     });
     return NextResponse.json({ ok: true, contribution: created }, { status: 201 });
   } catch (err) {

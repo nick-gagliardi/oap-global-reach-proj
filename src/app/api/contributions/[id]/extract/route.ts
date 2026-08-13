@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
 import { getContribution, UnprovisionedError } from "@/lib/iddb";
-import { extractFromLinks } from "@/lib/google-docs";
+import { extractFromLinks, MAX_CHARS_TOTAL, type DocExtract } from "@/lib/google-docs";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Step 1 of the incorporation pipeline (client-driven so each request stays
- * under the platform's ~30s cap): fetch text exports of any link-shared
- * Google Docs among the contribution's resource links. No LLM here.
+ * under the platform's ~30s cap). Extract sources, in priority order:
  *
- * Sharing errors are returned, not stored — the submitter fixes sharing and
- * retries; the contribution row stays `pending`.
+ * 1. Submitter-attached file text (stored on the row) — the path for
+ *    org-restricted Google files the server can never fetch.
+ * 2. Google-link fetches (works for genuinely public files) filling whatever
+ *    character budget remains.
+ *
+ * A sharing-blocked link is only FATAL when there is no other source at all —
+ * when attachments exist, the attachment is very likely that same file, so the
+ * pipeline continues and the block is surfaced as a warning.
  */
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -24,13 +29,43 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
       return NextResponse.json({ error: "Contribution not found" }, { status: 404 });
     }
 
-    const result = await extractFromLinks(contribution.resource_links ?? []);
-    const sharingErrors = result.errors.filter((e) => e.sharing);
+    // 1. Attachments first.
+    const extracts: DocExtract[] = [];
+    let budget = MAX_CHARS_TOTAL;
+    for (const att of contribution.attachments ?? []) {
+      if (budget <= 0) break;
+      const text = att.text.slice(0, budget);
+      extracts.push({ url: `attachment:${att.name}`, text });
+      budget -= text.length;
+    }
+
+    // 2. Google links fill the remaining budget.
+    const linkResult =
+      budget > 0
+        ? await extractFromLinks(contribution.resource_links ?? [])
+        : { extracts: [], skipped: contribution.resource_links ?? [], errors: [] };
+    for (const ex of linkResult.extracts) {
+      if (budget <= 0) break;
+      ex.text = ex.text.slice(0, budget);
+      budget -= ex.text.length;
+      extracts.push(ex);
+    }
+
+    const sharingErrors = linkResult.errors.filter((e) => e.sharing);
+    // Fatal only when a sharing block leaves us with nothing to synthesize from.
+    const blocked = sharingErrors.length > 0 && extracts.length === 0;
+
     return NextResponse.json({
-      ok: sharingErrors.length === 0,
-      extracts: result.extracts,
-      skipped: result.skipped,
-      errors: result.errors,
+      ok: !blocked,
+      extracts,
+      skipped: linkResult.skipped,
+      errors: linkResult.errors,
+      warnings: !blocked
+        ? sharingErrors.map(
+            (e) =>
+              `Couldn't fetch ${e.url} (restricted sharing) — proceeding with the attached file text.`,
+          )
+        : [],
     });
   } catch (err) {
     if (err instanceof UnprovisionedError) {
