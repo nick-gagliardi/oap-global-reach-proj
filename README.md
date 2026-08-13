@@ -71,7 +71,7 @@ Draft copy is marked `[PLACEHOLDER]` — find/replace as real content lands. Run
 | `ADMIN_EMAILS` | Comma-separated reviewer allowlist for contribution status changes (needs confirmed identity header) |
 | `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_KEY` | Local-dev LLM fallback only |
 | `HUB_GITHUB_TOKEN` | PAT (repo scope) the incorporation pipeline uses to open content PRs |
-| `HUB_GITHUB_REPO` | Content repo for PRs (default `nickgag626/oap-global-reach-hub`) |
+| `HUB_GITHUB_REPO` | Content repo for PRs (default `nick-gagliardi/oap-global-reach-proj` — the deployed repo) |
 | `HUB_GITHUB_BASE_BRANCH` | PR base branch (default `main`) |
 
 ## Contribution incorporation pipeline

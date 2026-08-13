@@ -9,7 +9,7 @@ const API = "https://api.github.com";
 export function getGithubConfig(): { token: string | null; repo: string; baseBranch: string } {
   return {
     token: process.env.HUB_GITHUB_TOKEN || null,
-    repo: process.env.HUB_GITHUB_REPO || "nickgag626/oap-global-reach-hub",
+    repo: process.env.HUB_GITHUB_REPO || "nick-gagliardi/oap-global-reach-proj",
     baseBranch: process.env.HUB_GITHUB_BASE_BRANCH || "main",
   };
 }
